@@ -17,6 +17,9 @@
     <link rel="stylesheet" href="/css/admin.css">
     <link rel="stylesheet" href="/css/admin-animations.css">
     <link rel="stylesheet" href="/css/app.css">
+    <% if (uploadsEnabled) { %>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+    <% } %>
 
     <!-- Socket.IO + Confetti -->
     <script src="/socket.io/socket.io.js"></script>

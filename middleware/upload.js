@@ -1,8 +1,17 @@
 import multer from 'multer';
 
-// Files are held in memory only long enough to stream them to Cloudinary;
-// nothing is ever written inside the project folder.
+// Files are held in memory only long enough to process them (images go to
+// Cloudinary, spreadsheets are parsed); nothing is written inside the project.
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_SHEET_BYTES = 5 * 1024 * 1024;
+
+const SHEET_TYPES = new Set([
+	'text/csv',
+	'application/csv',
+	'text/plain',
+	'application/vnd.ms-excel',
+	'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
 
 const images = multer({
 	storage: multer.memoryStorage(),
@@ -15,9 +24,21 @@ const images = multer({
 	},
 });
 
+const spreadsheets = multer({
+	storage: multer.memoryStorage(),
+	limits: { fileSize: MAX_SHEET_BYTES, files: 1 },
+	fileFilter: (_req, file, cb) => {
+		const name = file.originalname?.toLowerCase() || '';
+		if (SHEET_TYPES.has(file.mimetype) || name.endsWith('.csv') || name.endsWith('.xlsx')) return cb(null, true);
+		const error = new Error('Upload an Excel (.xlsx) or CSV (.csv) file');
+		error.code = 'NOT_A_SPREADSHEET';
+		cb(error);
+	},
+});
+
 const describe = (error) => {
-	if (error.code === 'LIMIT_FILE_SIZE') return 'Each image must be 8 MB or smaller';
-	if (error.code === 'LIMIT_FILE_COUNT') return 'Too many images in one upload';
+	if (error.code === 'LIMIT_FILE_SIZE') return 'That file is too large';
+	if (error.code === 'LIMIT_FILE_COUNT') return 'Too many files in one upload';
 	return error.message || 'Upload failed';
 };
 
@@ -35,6 +56,9 @@ const tolerant = (handler) => (req, res, next) => {
 
 /** Accept any image fields; controllers pick files by field name. */
 export const acceptImages = () => tolerant(images.any());
+
+/** Accept a single spreadsheet in the "file" field. */
+export const acceptSpreadsheet = () => tolerant(spreadsheets.single('file'));
 
 /** Find an uploaded file by its form field name. */
 export const fileFor = (req, fieldName) => (req.files || []).find((f) => f.fieldname === fieldName) || null;

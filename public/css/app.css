@@ -482,3 +482,80 @@ kbd {
 /* Let modals (z-index 10000) cover the sticky nav: admin.css gives
    .main-content its own stacking context, which trapped them underneath. */
 .main-content { z-index: auto; }
+
+/* ===== Photo crop dialog ===== */
+.crop-modal {
+  position: fixed; inset: 0; z-index: 11000; display: flex; align-items: center; justify-content: center;
+  background: rgba(17,24,39,0.6); backdrop-filter: blur(3px); padding: 1rem;
+}
+.crop-dialog {
+  background: white; border-radius: var(--r-xl); box-shadow: var(--shadow-xl);
+  padding: var(--sp-lg); width: min(560px, 100%); max-height: calc(100vh - 2rem); display: flex; flex-direction: column; gap: 0.6rem;
+}
+.crop-dialog h3 { display: flex; align-items: center; gap: 0.5rem; }
+.crop-dialog h3 i { color: var(--primary); }
+.crop-dialog p { font-size: 0.85rem; }
+.crop-area { height: min(60vh, 420px); background: var(--gray-900); border-radius: var(--r-lg); overflow: hidden; }
+.crop-area img { display: block; max-width: 100%; }
+.crop-actions { display: flex; align-items: center; gap: 0.5rem; }
+.crop-spacer { flex: 1; }
+
+/* ===== Quick photos ===== */
+.avatar-button {
+  position: relative; display: inline-flex; padding: 0; border: none; background: none; cursor: pointer; border-radius: 50%;
+  flex-shrink: 0;
+}
+.avatar-edit {
+  position: absolute; right: -3px; bottom: -3px; width: 18px; height: 18px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--primary); color: white; font-size: 0.55rem; box-shadow: 0 0 0 2px white;
+  opacity: 0; transform: scale(0.8); transition: all var(--transition-fast);
+}
+.avatar-button:hover .avatar-edit, .avatar-button:focus-visible .avatar-edit { opacity: 1; transform: scale(1); }
+.avatar-button .player-avatar.initials { opacity: 0.85; }
+.avatar-button.is-uploading { pointer-events: none; }
+.avatar-button.is-uploading .player-avatar { opacity: 0.4; }
+.avatar-button.is-uploading::after {
+  content: ''; position: absolute; inset: 6px; border-radius: 50%;
+  border: 2px solid var(--primary); border-top-color: transparent; animation: spin 0.8s linear infinite;
+}
+
+.bulk-photo {
+  width: 36px; height: 36px; border-radius: 50%; border: 1.5px dashed var(--gray-300); background: white;
+  color: var(--gray-400); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; padding: 0;
+}
+.bulk-photo:hover { border-color: var(--primary); color: var(--primary); }
+.bulk-photo.has-photo { border-style: solid; border-color: var(--success); }
+.bulk-photo img { width: 100%; height: 100%; object-fit: cover; }
+.table-hint { font-size: 0.8rem; align-self: center; }
+
+/* ===== Import ===== */
+.import-steps { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-lg); margin-bottom: var(--sp-lg); }
+.import-step { display: flex; gap: var(--sp-md); margin: 0; }
+.import-step h2 { font-size: 1.1rem; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem; }
+.import-step p { font-size: 0.9rem; margin-bottom: 0.6rem; }
+.import-upload { flex: 1; }
+.import-step-num {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--primary); color: white; font-weight: 800; font-size: 0.9rem;
+}
+.file-drop {
+  display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center; cursor: pointer;
+  border: 2px dashed var(--primary-200); border-radius: var(--r-lg); padding: 1.5rem 1rem; background: rgba(255,255,255,0.6);
+  transition: all var(--transition-fast);
+}
+.file-drop:hover, .file-drop.is-over { border-color: var(--primary); background: var(--primary-50); }
+.file-drop i { font-size: 1.8rem; color: var(--primary); }
+.file-drop input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.file-drop:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.preview-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-md); flex-wrap: wrap; margin-bottom: var(--sp-sm); }
+.preview-head h2 { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; }
+.preview-summary, .detected-columns { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.detected-columns { margin-bottom: var(--sp-md); }
+.preview-table tr.row-error td { background: rgba(254,226,226,0.5); }
+.row-problems { margin: 0; padding-left: 1rem; color: var(--danger-dark); font-size: 0.8rem; }
+.result-links { display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap; }
+
+@media (max-width: 768px) {
+  .import-steps { grid-template-columns: 1fr; }
+}

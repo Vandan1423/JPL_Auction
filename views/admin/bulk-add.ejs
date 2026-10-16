@@ -10,7 +10,10 @@
             <h1><i class="fa-solid fa-list-check"></i> Bulk add players</h1>
             <p class="page-subtitle">Fill in as many rows as you like. Empty rows are skipped, and rows with problems stay here for you to fix.</p>
         </div>
-        <a href="/admin/players/add" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add one with photo</a>
+        <div class="header-actions">
+            <a href="/admin/players/import" class="btn btn-secondary"><i class="fa-solid fa-file-import"></i> Import Excel/CSV</a>
+            <a href="/admin/players/add" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add one</a>
+        </div>
     </div>
 
     <div id="bulkResult" class="bulk-result" hidden></div>
@@ -19,6 +22,7 @@
         <div class="table-controls">
             <button type="button" class="btn btn-secondary btn-sm" data-add-rows="10"><i class="fa-solid fa-plus"></i> 10 more rows</button>
             <button type="button" class="btn btn-ghost btn-sm" data-clear-rows><i class="fa-solid fa-broom"></i> Clear all</button>
+            <% if (uploadsEnabled) { %><span class="muted table-hint"><i class="fa-solid fa-camera"></i> Tap the camera in a row to add that player's photo</span><% } %>
         </div>
 
         <div class="table-responsive">
@@ -26,6 +30,7 @@
                 <thead>
                     <tr>
                         <th>#</th>
+                        <% if (uploadsEnabled) { %><th>Photo</th><% } %>
                         <th>Name *</th>
                         <th>Role *</th>
                         <th>Category *</th>
@@ -50,18 +55,20 @@ window.BULK_CONFIG = <%- json({
     categories: categories.map(c => ({ id: String(c._id), name: c.name })),
     jerseySizes,
     optional,
+    photos: uploadsEnabled,
 }) %>;
 </script>
 <script>
 (function () {
-    const { roles, categories, jerseySizes, optional } = window.BULK_CONFIG;
+    const { roles, categories, jerseySizes, optional, photos: photosEnabled } = window.BULK_CONFIG;
     const tbody = document.getElementById('bulkTableBody');
     const result = document.getElementById('bulkResult');
+    const photos = new Map(); // row number → cropped image blob
     let rowCount = 0;
 
-    const options = (items, placeholder) =>
-        `<option value="">${placeholder}</option>` + items.map((i) => `<option value="${i.value}">${i.label}</option>`).join('');
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    const options = (items, placeholder) =>
+        `<option value="">${placeholder}</option>` + items.map((i) => `<option value="${esc(i.value)}">${esc(i.label)}</option>`).join('');
 
     const cellFor = {
         phone: () => '<input type="tel" data-field="phone" class="form-control form-control-sm" maxlength="16" placeholder="Mobile">',
@@ -77,9 +84,10 @@ window.BULK_CONFIG = <%- json({
             tr.dataset.row = rowCount;
             tr.innerHTML = `
                 <td class="row-number">${rowCount}</td>
+                ${photosEnabled ? '<td><button type="button" class="bulk-photo" data-row-photo title="Add photo"><i class="fa-solid fa-camera"></i></button></td>' : ''}
                 <td><input type="text" data-field="name" class="form-control form-control-sm" maxlength="80" placeholder="Player name"></td>
-                <td><select data-field="role" class="form-control form-control-sm">${options(roles.map((r) => ({ value: esc(r), label: esc(r) })), 'Role')}</select></td>
-                <td><select data-field="category" class="form-control form-control-sm">${options(categories.map((c) => ({ value: c.id, label: esc(c.name) })), 'Category')}</select></td>
+                <td><select data-field="role" class="form-control form-control-sm">${options(roles.map((r) => ({ value: r, label: r })), 'Role')}</select></td>
+                <td><select data-field="category" class="form-control form-control-sm">${options(categories.map((c) => ({ value: c.id, label: c.name })), 'Category')}</select></td>
                 ${optional.map((k) => `<td>${cellFor[k]()}</td>`).join('')}
                 <td><button type="button" class="btn-icon-only btn-ghost" data-remove title="Remove row"><i class="fa-solid fa-xmark"></i></button></td>`;
             tbody.appendChild(tr);
@@ -88,16 +96,67 @@ window.BULK_CONFIG = <%- json({
 
     const isEmpty = (tr) => [...tr.querySelectorAll('[data-field]')].every((el) => !el.value.trim());
 
+    // ── Row photos ──
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = 'image/*';
+    picker.hidden = true;
+    document.body.appendChild(picker);
+    let photoRow = null;
+
+    picker.addEventListener('change', async () => {
+        if (!photoRow || !window.ImageTools) return;
+        const image = await window.ImageTools.prepare(picker, 'square');
+        if (!image) return;
+        photos.set(photoRow.dataset.row, image);
+        const button = photoRow.querySelector('[data-row-photo]');
+        button.classList.add('has-photo');
+        button.innerHTML = `<img src="${URL.createObjectURL(image)}" alt="">`;
+        button.title = 'Change photo';
+    });
+
     document.addEventListener('click', (event) => {
-        if (event.target.closest('[data-remove]')) event.target.closest('tr').remove();
+        const photoButton = event.target.closest('[data-row-photo]');
+        if (photoButton) {
+            photoRow = photoButton.closest('tr');
+            picker.value = '';
+            picker.click();
+            return;
+        }
+        const remove = event.target.closest('[data-remove]');
+        if (remove) {
+            const tr = remove.closest('tr');
+            photos.delete(tr.dataset.row);
+            tr.remove();
+        }
         const more = event.target.closest('[data-add-rows]');
         if (more) addRows(Number(more.dataset.addRows));
         if (event.target.closest('[data-clear-rows]') && confirm('Clear every row?')) {
             tbody.innerHTML = '';
+            photos.clear();
             rowCount = 0;
             addRows(15);
         }
     });
+
+    async function uploadPhotos(created) {
+        const queue = created.filter((c) => photos.has(String(c.row)));
+        const failures = [];
+        for (const [i, item] of queue.entries()) {
+            show(`Uploading photos… ${i + 1} of ${queue.length}`, 'info');
+            const body = new FormData();
+            body.append('photo', photos.get(String(item.row)), 'photo.jpg');
+            try {
+                const res = await fetch(`/admin/players/${item.id}/photo`, { method: 'POST', body, headers: { Accept: 'application/json' } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+            } catch (error) {
+                failures.push(`Row ${item.row}: ${error.message}`);
+            }
+            photos.delete(String(item.row));
+        }
+        return failures;
+    }
 
     document.getElementById('bulkAddForm').addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -119,7 +178,9 @@ window.BULK_CONFIG = <%- json({
                 body: JSON.stringify({ players }),
             });
             const data = await response.json();
-            if (!data.success) return show(data.message || 'Could not add players', 'error');
+            if (!data.success) return show(esc(data.message || 'Could not add players'), 'error');
+
+            const photoFailures = await uploadPhotos(data.created || []);
 
             const failedRows = new Map((data.failed || []).map((f) => [String(f.row), f.reason]));
             rows.forEach((tr) => {
@@ -129,11 +190,18 @@ window.BULK_CONFIG = <%- json({
                 tr.title = reason;
                 tr.querySelector('.row-number').innerHTML = `${tr.dataset.row} <i class="fa-solid fa-circle-exclamation" title="${esc(reason)}"></i>`;
             });
-            const details = (data.failed || []).map((f) => `<li>Row ${f.row} (${esc(f.name)}): ${esc(f.reason)}</li>`).join('');
-            show(`${esc(data.message)}${details ? `<ul class="error-list">${details}</ul>` : ''}`, data.failed.length ? 'warning' : 'success');
+
+            const details = [
+                ...(data.failed || []).map((f) => `Row ${f.row} (${esc(f.name)}): ${esc(f.reason)}`),
+                ...photoFailures.map((f) => `Photo not saved, ${esc(f)}`),
+            ];
+            show(
+                `${esc(data.message)}${details.length ? `<ul class="error-list">${details.map((d) => `<li>${d}</li>`).join('')}</ul>` : ''}`,
+                details.length ? 'warning' : 'success'
+            );
             if (tbody.children.length < 5) addRows(10);
         } catch (error) {
-            show('Network error: ' + error.message, 'error');
+            show('Network error: ' + esc(error.message), 'error');
         } finally {
             button.disabled = false;
         }

@@ -1,11 +1,13 @@
 import mongoose from 'mongoose';
 import Player from '../models/Player.js';
 import { JERSEY_SIZES, POOL_STATUSES } from '../config/constants.js';
-import { escapeRegex, toInt } from '../utils/format.js';
+import { escapeRegex, slugify, toInt } from '../utils/format.js';
 import { fileFor } from '../middleware/upload.js';
 import { deleteImage, imageUrl, uploadImage } from '../services/cloudinary.js';
 import { nextAuctionOrder, nextPlayerNumber } from '../services/tournamentSetup.js';
 import { getAuctionState } from '../services/auction.js';
+import { FIELD_LABELS, buildTemplate, matchOption, readPlayerSheet } from '../services/playerImport.js';
+import { broadcast } from '../socket/index.js';
 
 const trim = (value, max = 120) => String(value ?? '').trim().slice(0, max);
 
@@ -168,8 +170,13 @@ export const showBulkAddForm = (req, res) => {
 export const bulkAddPlayers = async (req, res) => {
 	try {
 		const t = req.tournament;
-		const rows = Array.isArray(req.body.players) ? req.body.players.slice(0, 200) : [];
+		const rows = Array.isArray(req.body.players) ? req.body.players.slice(0, 1000) : [];
 		if (rows.length === 0) return res.json({ success: false, message: 'No player data provided' });
+
+		// One query for every registered phone instead of one per row.
+		const registered = new Map(
+			(await Player.find({ tournament: t._id, phone: { $ne: '' } }).select('phone name').lean()).map((p) => [p.phone, p.name])
+		);
 
 		const valid = [];
 		const failed = [];
@@ -177,30 +184,31 @@ export const bulkAddPlayers = async (req, res) => {
 		for (const [index, row] of rows.entries()) {
 			const { data, errors } = parsePlayerInput(row, t);
 			if (data.phone && phones.has(data.phone)) errors.push('Phone number repeated in this batch');
-			const duplicate = !errors.length && (await phoneTaken(t, data.phone));
-			if (duplicate) errors.push(`Phone number already registered to ${duplicate.name}`);
+			else if (data.phone && registered.has(data.phone)) errors.push(`Phone number already registered to ${registered.get(data.phone)}`);
 			if (errors.length) {
 				failed.push({ row: row.row ?? index + 1, name: data.name || '—', reason: errors.join(', ') });
 				continue;
 			}
 			if (data.phone) phones.add(data.phone);
-			valid.push(data);
+			valid.push({ ...data, row: row.row ?? index + 1 });
 		}
 
 		let number = await nextPlayerNumber(t._id);
 		let order = await nextAuctionOrder(t._id);
-		const docs = valid.map((data) => ({
+		const docs = valid.map(({ row, ...data }) => ({
 			...data,
 			tournament: t._id,
 			originalCategory: data.category,
 			playerNumber: number++,
 			auctionOrder: order++,
 		}));
-		if (docs.length) await Player.insertMany(docs);
+		const inserted = docs.length ? await Player.insertMany(docs) : [];
 
 		return res.json({
 			success: true,
 			added: docs.length,
+			// Lets the bulk page upload each row's photo to the new player.
+			created: inserted.map((p, i) => ({ row: valid[i].row, id: p._id, playerNumber: p.playerNumber })),
 			failed,
 			message:
 				`Added ${docs.length} player${docs.length === 1 ? '' : 's'}.` +
@@ -382,5 +390,131 @@ export const autoArrangeOrder = async (req, res, next) => {
 		return res.redirect('/admin/players/reorder');
 	} catch (error) {
 		next(error);
+	}
+};
+
+// ───────────────────────── Photos ─────────────────────────
+
+/** If this player is on stage right now, refresh every screen so the photo shows. */
+async function refreshIfLive(req, player) {
+	const state = await getAuctionState(req.tournament._id);
+	if (String(state.currentPlayer) === String(player._id)) await broadcast(req.io, req.tournament, 'player-updated');
+}
+
+/** POST /admin/players/:id/photo — add or replace one player's photo (JSON). */
+export const uploadPlayerPhoto = async (req, res) => {
+	try {
+		const t = req.tournament;
+		const player = await findPlayer(t, req.params.id);
+		if (!player) return res.status(404).json({ success: false, message: 'Player not found' });
+		if (req.uploadError) return res.status(400).json({ success: false, message: req.uploadError });
+		const file = fileFor(req, 'photo');
+		if (!file) return res.status(400).json({ success: false, message: 'Choose a photo first' });
+
+		const uploaded = await uploadImage(file.buffer, { tournamentId: t._id, kind: 'players' });
+		await deleteImage(player.photo?.publicId);
+		player.photo = uploaded;
+		await player.save();
+		await refreshIfLive(req, player);
+
+		return res.json({ success: true, photoThumb: imageUrl(uploaded, 'thumb'), photo: imageUrl(uploaded, 'card') });
+	} catch (error) {
+		return res.status(error.status || 500).json({ success: false, message: error.message });
+	}
+};
+
+/** POST /admin/players/:id/photo/remove */
+export const removePlayerPhoto = async (req, res) => {
+	try {
+		const player = await findPlayer(req.tournament, req.params.id);
+		if (!player) return res.status(404).json({ success: false, message: 'Player not found' });
+		await deleteImage(player.photo?.publicId);
+		player.photo = undefined;
+		await player.save();
+		await refreshIfLive(req, player);
+		return res.json({ success: true });
+	} catch (error) {
+		return res.status(500).json({ success: false, message: error.message });
+	}
+};
+
+// ───────────────────────── Excel / CSV import ─────────────────────────
+
+export const showImportPage = (req, res) => {
+	// Only mention fields this tournament collects.
+	const modes = req.tournament.playerFields || {};
+	const fieldLabels = Object.fromEntries(
+		Object.entries(FIELD_LABELS).filter(([key]) => (modes[key] || 'optional') !== 'hidden')
+	);
+	res.render('admin/import-players', { title: 'Import Players', fieldLabels });
+};
+
+/** GET /admin/players/import/template — .xlsx with this tournament's dropdowns. */
+export const downloadImportTemplate = async (req, res, next) => {
+	try {
+		const t = req.tournament;
+		const workbook = buildTemplate(t);
+		res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+		res.setHeader('Content-Disposition', `attachment; filename="${slugify(t.shortName || t.name) || 'tournament'}-player-template.xlsx"`);
+		await workbook.xlsx.write(res);
+		res.end();
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
+ * POST /admin/players/import/preview — read the file and validate every row
+ * without saving anything. The page then imports the valid rows through the
+ * bulk-add endpoint.
+ */
+export const previewImport = async (req, res) => {
+	const t = req.tournament;
+	if (req.uploadError) return res.status(400).json({ success: false, message: req.uploadError });
+	if (!req.file) return res.status(400).json({ success: false, message: 'Choose an Excel or CSV file' });
+
+	try {
+		const { columns, rows } = await readPlayerSheet(req.file);
+		const categoryNames = t.categories.map((c) => c.name);
+		const registered = new Set(
+			(await Player.find({ tournament: t._id, phone: { $ne: '' } }).select('phone').lean()).map((p) => p.phone)
+		);
+		const seen = new Set();
+
+		const preview = rows.slice(0, 1000).map(({ row, values }) => {
+			const role = matchOption(values.role, t.roles, 'Role');
+			const category = matchOption(values.category, categoryNames, 'Category');
+			const size = matchOption(values.jerseySize, JERSEY_SIZES, 'Jersey size');
+			const categoryDoc = t.categories.find((c) => c.name === category.value);
+
+			const { data, errors } = parsePlayerInput(
+				{
+					...values,
+					role: role.value || values.role || '',
+					category: categoryDoc ? String(categoryDoc._id) : '',
+					jerseySize: size.value || values.jerseySize || '',
+				},
+				t
+			);
+			// Prefer the friendlier "could mean…" / "is not one of…" messages.
+			const problems = errors.filter((e) => !(role.error && /role/i.test(e)) && !(category.error && /category/i.test(e)));
+			if (role.error) problems.push(role.error);
+			if (category.error) problems.push(category.error);
+			if (data.phone && registered.has(data.phone)) problems.push('Phone number is already registered');
+			else if (data.phone && seen.has(data.phone)) problems.push('Phone number appears twice in this file');
+			if (data.phone) seen.add(data.phone);
+
+			return { row, data: { ...data, categoryName: categoryDoc?.name || values.category || '' }, errors: problems };
+		});
+
+		return res.json({
+			success: true,
+			columns,
+			total: rows.length,
+			truncated: rows.length > preview.length,
+			rows: preview,
+		});
+	} catch (error) {
+		return res.status(error.status || 500).json({ success: false, message: error.message });
 	}
 };

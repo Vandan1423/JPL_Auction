@@ -44,6 +44,7 @@
                 <%- include('../../partials/image-field', {
                     name: `ownerPhoto_${team._id}`,
                     label: 'Owner photo',
+                    crop: 'square',
                     image: owner.photo,
                     preset: 'avatar',
                     removeName: `${p}[removeOwnerPhoto]`,

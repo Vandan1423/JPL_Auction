@@ -1,6 +1,7 @@
 <%#
     Image upload field with live preview.
-    Params: name, label, image ({url}), preset, removeName?, round?, icon?, hint?
+    Params: name, label, image ({url}), preset, removeName?, round?, icon?, hint?,
+            crop? ("square" opens the crop dialog; default "fit" just resizes)
 %>
 <div class="image-field" data-image-field>
     <div class="image-field-preview <%= locals.round ? 'is-round' : '' %>" data-image-preview>
@@ -16,7 +17,7 @@
             <div class="image-field-actions">
                 <label class="btn btn-secondary btn-sm">
                     <i class="fa-solid fa-upload"></i> <%= image && image.url ? 'Replace' : 'Choose image' %>
-                    <input type="file" name="<%= name %>" accept="image/*" class="visually-hidden" data-image-input>
+                    <input type="file" name="<%= name %>" accept="image/*" class="visually-hidden" data-image-input data-crop="<%= locals.crop || 'fit' %>">
                 </label>
                 <% if (image && image.url && locals.removeName) { %>
                     <label class="image-field-remove"><input type="checkbox" name="<%= removeName %>"> Remove</label>

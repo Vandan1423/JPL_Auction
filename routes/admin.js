@@ -8,7 +8,7 @@ import * as reportsController from '../controllers/reportsController.js';
 import * as settingsController from '../controllers/settingsController.js';
 import { isAuthenticated, isNotAuthenticated } from '../middleware/auth.js';
 import { loadTournament, requireSetupComplete } from '../middleware/tournament.js';
-import { acceptImages } from '../middleware/upload.js';
+import { acceptImages, acceptSpreadsheet } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -43,6 +43,11 @@ router.get('/players/add', ...ready, playerController.showAddPlayerForm);
 router.post('/players/add', ...ready, acceptImages(), playerController.addPlayer);
 router.get('/players/bulk', ...ready, playerController.showBulkAddForm);
 router.post('/players/bulk', ...ready, playerController.bulkAddPlayers);
+router.get('/players/import', ...ready, playerController.showImportPage);
+router.get('/players/import/template', ...ready, playerController.downloadImportTemplate);
+router.post('/players/import/preview', ...ready, acceptSpreadsheet(), playerController.previewImport);
+router.post('/players/:id/photo', ...ready, acceptImages(), playerController.uploadPlayerPhoto);
+router.post('/players/:id/photo/remove', ...ready, playerController.removePlayerPhoto);
 router.get('/players/edit/:id', ...ready, playerController.showEditPlayerForm);
 router.post('/players/edit/:id', ...ready, acceptImages(), playerController.editPlayer);
 router.post('/players/delete/:id', ...ready, playerController.deletePlayer);

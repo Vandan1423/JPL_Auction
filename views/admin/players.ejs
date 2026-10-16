@@ -9,6 +9,7 @@
         <div class="header-actions">
             <a href="/admin/players/add" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add player</a>
             <a href="/admin/players/bulk" class="btn btn-secondary"><i class="fa-solid fa-list-check"></i> Bulk add</a>
+            <a href="/admin/players/import" class="btn btn-secondary"><i class="fa-solid fa-file-import"></i> Import Excel/CSV</a>
             <a href="/admin/players/reorder" class="btn btn-secondary"><i class="fa-solid fa-arrow-up-wide-short"></i> Auction order</a>
         </div>
     </div>
@@ -86,11 +87,13 @@
                             <td><strong>#<%= player.playerNumber %></strong></td>
                             <td>
                                 <div class="player-cell">
+                                    <% if (uploadsEnabled) { %><button type="button" class="avatar-button" data-photo-player="<%= player._id %>" title="<%= player.photoThumb ? 'Change photo' : 'Add photo' %>" aria-label="Photo for <%= player.name %>"><% } %>
                                     <% if (player.photoThumb) { %>
                                         <img src="<%= player.photoThumb %>" alt="" class="player-avatar">
                                     <% } else { %>
                                         <span class="player-avatar initials"><%= player.name.charAt(0).toUpperCase() %></span>
                                     <% } %>
+                                    <% if (uploadsEnabled) { %><span class="avatar-edit"><i class="fa-solid fa-camera"></i></span></button><% } %>
                                     <span><%= player.name %></span>
                                 </div>
                             </td>
@@ -128,4 +131,5 @@
     </div>
 </div>
 
+<script defer src="/js/players-list.js"></script>
 <%- include('../partials/footer') %>

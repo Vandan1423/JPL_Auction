@@ -5,16 +5,18 @@
     const currency = config.currency || { symbol: '₹', suffix: '', locale: 'en-IN' };
     const money = (n) => `${currency.symbol}${Math.round(Number(n) || 0).toLocaleString(currency.locale)}${currency.suffix || ''}`;
 
-    // ── Image previews ──
-    document.addEventListener('change', (event) => {
+    // ── Image previews (owner photos are cropped square, logos resized) ──
+    document.addEventListener('change', async (event) => {
         const input = event.target.closest('[data-image-input]');
         if (!input || !input.files || !input.files[0]) return;
         const field = input.closest('[data-image-field]');
         const preview = field && field.querySelector('[data-image-preview]');
-        if (!preview) return;
+
+        const image = window.ImageTools ? await window.ImageTools.prepare(input, input.dataset.crop) : input.files[0];
+        if (!image || !preview) return;
         const img = document.createElement('img');
         img.alt = '';
-        img.src = URL.createObjectURL(input.files[0]);
+        img.src = URL.createObjectURL(image);
         preview.replaceChildren(img);
         const remove = field.querySelector('.image-field-remove input');
         if (remove) remove.checked = false;

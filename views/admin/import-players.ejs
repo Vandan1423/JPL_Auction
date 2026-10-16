@@ -1,0 +1,190 @@
+<%- include('../partials/header', { title, showNav: true, activePage: 'players' }) %>
+
+<div class="page-container import-page">
+    <div class="page-header">
+        <div>
+            <h1><i class="fa-solid fa-file-import"></i> Import players</h1>
+            <p class="page-subtitle">Bring in a whole registration list from Excel or a Google Form. Nothing is saved until you confirm.</p>
+        </div>
+        <a href="/admin/players" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Players</a>
+    </div>
+
+    <div class="import-steps">
+        <section class="glass-card-static import-step">
+            <span class="import-step-num">1</span>
+            <div>
+                <h2>Get the list ready</h2>
+                <p>Download the template, which has dropdowns for this tournament's roles and categories. Or export your Google Form responses as CSV (in Google Sheets: <em>File → Download → .csv</em>).</p>
+                <p class="muted">Columns we recognise: <%= Object.values(fieldLabels).join(', ') %>. Others, like Timestamp or Email, are ignored.</p>
+                <a class="btn btn-secondary" href="/admin/players/import/template"><i class="fa-solid fa-file-excel"></i> Download template</a>
+            </div>
+        </section>
+
+        <section class="glass-card-static import-step">
+            <span class="import-step-num">2</span>
+            <div class="import-upload">
+                <h2>Upload the file</h2>
+                <label class="file-drop" id="fileDrop">
+                    <input type="file" id="importFile" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <strong id="fileDropLabel">Choose an .xlsx or .csv file</strong>
+                    <span class="muted">or drag it here</span>
+                </label>
+            </div>
+        </section>
+    </div>
+
+    <div id="importResult" hidden></div>
+
+    <section class="glass-card-static" id="previewSection" hidden>
+        <div class="preview-head">
+            <h2><span class="import-step-num">3</span> Check and import</h2>
+            <div id="previewSummary" class="preview-summary"></div>
+        </div>
+        <div id="detectedColumns" class="detected-columns"></div>
+        <label class="checkbox-line"><input type="checkbox" id="onlyProblems"> Show only rows with problems</label>
+
+        <div class="table-responsive">
+            <table class="players-table preview-table">
+                <thead>
+                    <tr>
+                        <th>Row</th>
+                        <% Object.values(fieldLabels).forEach(label => { %><th><%= label %></th><% }) %>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="previewBody"></tbody>
+            </table>
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn btn-primary btn-lg" id="importBtn" disabled><i class="fa-solid fa-file-import"></i> Import players</button>
+            <span class="muted">Rows with problems are skipped. Fix them in the file and import it again (players already imported are detected by phone number), or add them by hand.</span>
+        </div>
+    </section>
+</div>
+
+<script>
+(function () {
+    const FIELD_LABELS = <%- json(fieldLabels) %>;
+    const REQUIRED = ['name', 'role', 'category'];
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    let preview = null;
+
+    async function upload(file) {
+        if (!file) return;
+        $('fileDropLabel').textContent = file.name;
+        $('importResult').hidden = true;
+        $('previewSection').hidden = true;
+        const body = new FormData();
+        body.append('file', file);
+        try {
+            const res = await fetch('/admin/players/import/preview', { method: 'POST', body, headers: { Accept: 'application/json' } });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message);
+            preview = data;
+            render();
+        } catch (error) {
+            showResult(`<strong>Could not read the file.</strong> ${esc(error.message)}`, 'error');
+        }
+    }
+
+    function render() {
+        const ok = preview.rows.filter((r) => !r.errors.length);
+        const bad = preview.rows.length - ok.length;
+        $('previewSummary').innerHTML = `
+            <span class="chip chip-success"><i class="fa-solid fa-check"></i> ${ok.length} ready</span>
+            ${bad ? `<span class="chip chip-warning"><i class="fa-solid fa-triangle-exclamation"></i> ${bad} with problems</span>` : ''}
+            ${preview.truncated ? `<span class="chip chip-muted">Showing the first ${preview.rows.length} of ${preview.total} rows</span>` : ''}`;
+
+        $('detectedColumns').innerHTML = Object.entries(FIELD_LABELS).map(([field, label]) => {
+            const found = preview.columns[field];
+            if (found) return `<span class="chip chip-info" title="Read from the &quot;${esc(found)}&quot; column"><i class="fa-solid fa-check"></i> ${esc(label)}</span>`;
+            return `<span class="chip ${REQUIRED.includes(field) ? 'chip-warning' : 'chip-muted'}" title="No column for this"><i class="fa-solid fa-minus"></i> ${esc(label)}</span>`;
+        }).join('');
+
+        const onlyProblems = $('onlyProblems').checked;
+        const fields = Object.keys(FIELD_LABELS);
+        const valueOf = (data, field) => (field === 'category' ? data.categoryName : data[field]);
+        $('previewBody').innerHTML = preview.rows
+            .filter((r) => !onlyProblems || r.errors.length)
+            .map((r) => `
+                <tr class="${r.errors.length ? 'row-error' : ''}">
+                    <td>${r.row}</td>
+                    ${fields.map((f) => `<td>${esc(valueOf(r.data, f) ?? '') || '<span class="muted">—</span>'}</td>`).join('')}
+                    <td>${r.errors.length
+                        ? `<ul class="row-problems">${r.errors.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>`
+                        : '<span class="chip chip-success"><i class="fa-solid fa-check"></i> Ready</span>'}</td>
+                </tr>`)
+            .join('') || `<tr><td colspan="${fields.length + 2}" class="muted">No rows with problems.</td></tr>`;
+
+        $('importBtn').disabled = ok.length === 0;
+        $('importBtn').innerHTML = `<i class="fa-solid fa-file-import"></i> Import ${ok.length} player${ok.length === 1 ? '' : 's'}`;
+        $('previewSection').hidden = false;
+    }
+
+    $('onlyProblems').addEventListener('change', () => preview && render());
+    $('importFile').addEventListener('change', (e) => upload(e.target.files[0]));
+
+    const drop = $('fileDrop');
+    ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('is-over'); }));
+    ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, () => drop.classList.remove('is-over')));
+    drop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]);
+    });
+
+    $('importBtn').addEventListener('click', async () => {
+        const players = preview.rows
+            .filter((r) => !r.errors.length)
+            .map((r) => ({
+                row: r.row,
+                name: r.data.name,
+                role: r.data.role,
+                category: r.data.category,
+                phone: r.data.phone,
+                jerseySize: r.data.jerseySize,
+                jerseyNumber: r.data.jerseyNumber,
+                age: r.data.age ?? '',
+            }));
+        const button = $('importBtn');
+        button.disabled = true;
+        button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Importing…';
+        try {
+            const res = await fetch('/admin/players/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ players }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message);
+            const failed = (data.failed || []).map((f) => `<li>Row ${f.row} (${esc(f.name)}): ${esc(f.reason)}</li>`).join('');
+            showResult(`
+                <strong>${esc(data.message)}</strong>
+                ${failed ? `<ul class="error-list">${failed}</ul>` : ''}
+                <div class="result-links">
+                    <a class="btn btn-sm btn-primary" href="/admin/players">View players</a>
+                    <a class="btn btn-sm btn-secondary" href="/admin/players/reorder">Arrange auction order</a>
+                </div>`, failed ? 'warning' : 'success');
+            $('previewSection').hidden = true;
+            $('importFile').value = '';
+            $('fileDropLabel').textContent = 'Choose an .xlsx or .csv file';
+        } catch (error) {
+            showResult(`<strong>Import failed.</strong> ${esc(error.message)}`, 'error');
+            button.disabled = false;
+            render();
+        }
+    });
+
+    function showResult(html, type) {
+        const box = $('importResult');
+        box.className = `alert alert-${type}`;
+        box.innerHTML = `<i class="fa-solid fa-circle-info"></i><div>${html}</div>`;
+        box.hidden = false;
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+})();
+</script>
+
+<%- include('../partials/footer') %>
