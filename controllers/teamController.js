@@ -1,7 +1,15 @@
 import Team from '../models/Team.js';
 import Player from '../models/Player.js';
 import { calculateMaxBid, calculateMaxBidDirect } from '../utils/helpers.js';
-import DEFAULT_TEAMS from '../config/defaultTeams.js';
+
+const PLACEHOLDER_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+const DEFAULT_TEAMS = PLACEHOLDER_COLORS.map((color, i) => ({
+  teamName: `Team ${i + 1}`,
+  teamNumber: i + 1,
+  color,
+  captain: '',
+  logo: '',
+}));
 
 // Show teams setup page
 export const showTeamsSetup = async (req, res) => {

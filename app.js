@@ -4,8 +4,6 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import dotenv from 'dotenv';
 import session from 'express-session';
-import bodyParser from 'body-parser';
-import methodOverride from 'method-override';
 import { Server } from 'socket.io';
 
 import connectDB from './config/database.js';
@@ -25,8 +23,8 @@ const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(
@@ -43,8 +41,6 @@ app.use(
 		rolling: true, // Reset maxAge on activity
 	})
 );
-
-app.use(methodOverride('_method'));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -196,10 +192,7 @@ const PORT = process.env.PORT || 3000;
 
 const start = async () => {
 	await connectDB();
-	
-	// Clean up old logs on startup
-	logger.cleanup();
-	
+
 	server.listen(PORT, () => {
 		logger.info(`Server started on port ${PORT}`);
 		console.log(`Server running on http://localhost:${PORT}`);

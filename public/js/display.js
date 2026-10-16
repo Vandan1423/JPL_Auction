@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  JPL Auction — Live Display  (Socket.IO + Beautiful Animations)
+//  Auction Hub — Live Display  (Socket.IO + Beautiful Animations)
 // ═══════════════════════════════════════════════════════════════
 
 // Socket.io configuration for better reconnection handling

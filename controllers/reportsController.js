@@ -117,7 +117,7 @@ async function exportSoldPlayersExcel(req, res) {
         
         // Set response headers
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=jpl_sold_players.xlsx');
+        res.setHeader('Content-Disposition', 'attachment; filename=auction_hub_sold_players.xlsx');
         
         // Write to response
         await workbook.xlsx.write(res);
@@ -225,7 +225,7 @@ async function exportTeamSheetsExcel(req, res) {
         });
         
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=jpl_team_sheets.xlsx');
+        res.setHeader('Content-Disposition', 'attachment; filename=auction_hub_team_sheets.xlsx');
         
         await workbook.xlsx.write(res);
         res.end();
@@ -272,7 +272,7 @@ async function exportUnsoldPlayersExcel(req, res) {
         });
         
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=jpl_unsold_players.xlsx');
+        res.setHeader('Content-Disposition', 'attachment; filename=auction_hub_unsold_players.xlsx');
         
         await workbook.xlsx.write(res);
         res.end();
@@ -301,7 +301,7 @@ async function generateTeamPDF(req, res) {
         doc.pipe(res);
         
         // Header
-        doc.fontSize(24).font('Helvetica-Bold').text('JAIN PREMIER LEAGUE', { align: 'center' });
+        doc.fontSize(24).font('Helvetica-Bold').text('AUCTION HUB', { align: 'center' });
         doc.moveDown(0.5);
         doc.fontSize(20).fillColor(team.color).text(team.teamName.toUpperCase(), { align: 'center' });
         doc.moveDown(1);

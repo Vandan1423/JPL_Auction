@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const connectDB = async () => {
 	// Read at call time: ES module imports run before dotenv.config() in app.js
-	const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/jpl-auction';
+	const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/auction-hub';
 
 	try {
 		await mongoose.connect(uri);
