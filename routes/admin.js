@@ -66,6 +66,8 @@ router.get('/reports/export/sold-players', ...ready, reportsController.exportSol
 router.get('/reports/export/team-sheets', ...ready, reportsController.exportTeamSheetsExcel);
 router.get('/reports/export/unsold-players', ...ready, reportsController.exportUnsoldPlayersExcel);
 router.get('/reports/team-pdf/:teamId', ...ready, reportsController.generateTeamPDF);
+router.get('/reports/squads.pdf', ...ready, reportsController.exportAllSquadsPDF);
+router.get('/reports/catalogue.pdf', ...ready, reportsController.exportPlayerCataloguePDF);
 
 // Settings
 router.get('/settings', ...ready, settingsController.showSettings);

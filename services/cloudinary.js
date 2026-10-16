@@ -121,3 +121,17 @@ export function imageUrl(image, preset = 'card') {
 	const transformation = `${DELIVERY_PRESETS[preset] || DELIVERY_PRESETS.card},f_auto,q_auto`;
 	return url.replace('/upload/', `/upload/${transformation}/`);
 }
+
+// PDFKit can only embed JPEG and PNG, so PDFs ask Cloudinary for those
+// formats explicitly instead of f_auto (which may return WebP/AVIF).
+const PDF_PRESETS = {
+	photo: 'c_fill,g_face,w_160,h_160,f_jpg,q_80',
+	logo: 'c_pad,b_white,w_200,h_200,f_png',
+};
+
+/** Cloudinary URL for an image to embed in a generated PDF ('' when none). */
+export function pdfImageUrl(image, kind = 'photo') {
+	const url = typeof image === 'string' ? image : image?.url;
+	if (!url || !url.includes('res.cloudinary.com') || !url.includes('/upload/')) return '';
+	return url.replace('/upload/', `/upload/${PDF_PRESETS[kind] || PDF_PRESETS.photo}/`);
+}

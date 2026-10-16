@@ -3,10 +3,9 @@ import PDFDocument from 'pdfkit';
 import ExcelJS from 'exceljs';
 import Player from '../models/Player.js';
 import { getBiddingBoard, getPlayerCounts } from '../services/standings.js';
-import { formatMoney, slugify } from '../utils/format.js';
-
-// PDFKit's built-in fonts have no ₹ glyph, so PDFs spell it out.
-const pdfMoney = (amount, currency) => formatMoney(amount, currency).replace('₹', 'Rs. ');
+import { slugify } from '../utils/format.js';
+import { pdfImageUrl } from '../services/cloudinary.js';
+import { drawCatalogue, drawHeader, drawTeamSquad, fetchImages } from '../services/pdf.js';
 
 const fileName = (tournament, suffix, ext) => `${slugify(tournament.shortName || tournament.name) || 'tournament'}-${suffix}.${ext}`;
 
@@ -230,6 +229,27 @@ export const exportTeamSheetsExcel = async (req, res, next) => {
 	}
 };
 
+const startPdf = (res, name) => {
+	const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: false });
+	res.setHeader('Content-Type', 'application/pdf');
+	res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+	doc.pipe(res);
+	return doc;
+};
+
+const squadsFor = (tournament) =>
+	Player.find({ tournament: tournament._id, status: 'sold' }).sort({ isOwner: -1, soldAt: 1 }).lean();
+
+/** Photos and logos for a set of teams' squads, keyed by player/team id. */
+async function squadImages(tournament, teams, players) {
+	const entries = [
+		...players.filter((p) => p.photo?.url).map((p) => [String(p._id), pdfImageUrl(p.photo, 'photo')]),
+		...teams.filter((t) => t.logo?.url).map((t) => [`team:${t._id}`, pdfImageUrl(t.logo, 'logo')]),
+	];
+	if (tournament.logo?.url) entries.push(['tournament', pdfImageUrl(tournament.logo, 'logo')]);
+	return fetchImages(entries);
+}
+
 /** GET /admin/reports/team-pdf/:teamId — squad sheet for one team. */
 export const generateTeamPDF = async (req, res, next) => {
 	try {
@@ -239,54 +259,65 @@ export const generateTeamPDF = async (req, res, next) => {
 		const team = board.teams.find((x) => String(x._id) === req.params.teamId);
 		if (!team) return res.status(404).send('Team not found');
 
-		const squad = await Player.find({ tournament: t._id, soldTo: team._id, status: 'sold' }).sort({ isOwner: -1, soldAt: 1 }).lean();
+		const squad = (await squadsFor(t)).filter((p) => String(p.soldTo) === String(team._id));
+		const images = await squadImages(t, [team], squad);
 
-		const doc = new PDFDocument({ size: 'A4', margin: 50 });
-		res.setHeader('Content-Type', 'application/pdf');
-		res.setHeader('Content-Disposition', `attachment; filename="${slugify(team.name) || 'team'}-squad.pdf"`);
-		doc.pipe(res);
+		const doc = startPdf(res, `${slugify(team.name) || 'team'}-squad.pdf`);
+		drawHeader(doc, t, { title: 'Squad sheet', logo: images.get('tournament') });
+		drawTeamSquad(doc, t, team, squad, { logo: images.get(`team:${team._id}`), photos: images });
+		doc.end();
+	} catch (error) {
+		next(error);
+	}
+};
 
-		doc.fontSize(22).font('Helvetica-Bold').fillColor('#111827').text(t.name.toUpperCase(), { align: 'center' });
-		if (t.season) doc.fontSize(11).font('Helvetica').fillColor('#6B7280').text(t.season, { align: 'center' });
-		doc.moveDown(0.6);
-		doc.fontSize(18).font('Helvetica-Bold').fillColor(team.color || '#111827').text(team.name.toUpperCase(), { align: 'center' });
-		doc.moveDown(1);
+/** GET /admin/reports/squads.pdf — every team's squad, one team per page. */
+export const exportAllSquadsPDF = async (req, res, next) => {
+	try {
+		const t = req.tournament;
+		const [board, players] = await Promise.all([getBiddingBoard(t), squadsFor(t)]);
+		const images = await squadImages(t, board.teams, players);
 
-		doc.fontSize(11).fillColor('black').font('Helvetica');
-		if (team.owner?.name) doc.text(`Owner: ${team.owner.name}${team.owner.isPlaying ? ' (plays)' : ''}`);
-		doc.text(`Squad: ${team.playersCount}/${t.squad.max}`);
-		doc.text(`Spent: ${pdfMoney(team.spent, t.currency)}`);
-		doc.text(`Remaining purse: ${pdfMoney(team.remainingPurse, t.currency)}`);
-		doc.moveDown(1);
-		doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
-		doc.moveDown(0.8);
-
-		const columns = [
-			{ label: '#', x: 50, width: 25 },
-			{ label: 'Player', x: 80, width: 170 },
-			{ label: 'Role', x: 255, width: 120 },
-			{ label: 'Category', x: 380, width: 70 },
-			{ label: 'Price', x: 455, width: 90 },
-		];
-		const drawRow = (values, bold = false) => {
-			if (doc.y > 760) doc.addPage();
-			const y = doc.y;
-			doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(10);
-			columns.forEach((c, i) => doc.text(String(values[i] ?? ''), c.x, y, { width: c.width, ellipsis: true, lineBreak: false }));
-			doc.y = y + 18;
-		};
-
-		drawRow(columns.map((c) => c.label), true);
-		squad.forEach((p, i) => {
-			drawRow([
-				i + 1,
-				p.isOwner ? `${p.name} (Owner)` : p.name,
-				p.role || '',
-				t.getCategory(p.category)?.name || '—',
-				pdfMoney(p.soldPrice, t.currency),
-			]);
+		const doc = startPdf(res, fileName(t, 'squads', 'pdf'));
+		board.teams.forEach((team, index) => {
+			if (index > 0) doc.addPage();
+			drawHeader(doc, t, { title: 'Squad sheet', logo: images.get('tournament') });
+			const squad = players.filter((p) => String(p.soldTo) === String(team._id));
+			drawTeamSquad(doc, t, team, squad, { logo: images.get(`team:${team._id}`), photos: images });
 		});
+		doc.end();
+	} catch (error) {
+		next(error);
+	}
+};
 
+/**
+ * GET /admin/reports/catalogue.pdf — printable list of every player still
+ * in the auction (or all players with ?all=1), grouped by category.
+ */
+export const exportPlayerCataloguePDF = async (req, res, next) => {
+	try {
+		const t = req.tournament;
+		const includeAll = req.query.all === '1';
+		const players = await Player.find({
+			tournament: t._id,
+			isOwner: false,
+			status: includeAll ? { $ne: 'withdrawn' } : { $in: ['available', 'unsold'] },
+		})
+			.sort({ playerNumber: 1 })
+			.lean();
+
+		const entries = players.filter((p) => p.photo?.url).map((p) => [String(p._id), pdfImageUrl(p.photo, 'photo')]);
+		if (t.logo?.url) entries.push(['tournament', pdfImageUrl(t.logo, 'logo')]);
+		const images = await fetchImages(entries);
+
+		const doc = startPdf(res, fileName(t, includeAll ? 'all-players' : 'player-catalogue', 'pdf'));
+		drawHeader(doc, t, {
+			title: includeAll ? 'All players' : 'Player catalogue',
+			subtitle: `${players.length} player${players.length === 1 ? '' : 's'}${t.venue ? ` · ${t.venue}` : ''}`,
+			logo: images.get('tournament'),
+		});
+		drawCatalogue(doc, t, players, images);
 		doc.end();
 	} catch (error) {
 		next(error);

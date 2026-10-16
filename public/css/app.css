@@ -559,3 +559,7 @@ kbd {
 @media (max-width: 768px) {
   .import-steps { grid-template-columns: 1fr; }
 }
+
+/* Reports */
+.export-group-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.6px; color: var(--gray-500); margin: var(--sp-md) 0 var(--sp-sm); }
+.export-buttons { display: flex; flex-wrap: wrap; gap: var(--sp-sm); }
