@@ -1,0 +1,127 @@
+<%- include('../partials/header', {title: 'Admin Dashboard', showNav: true, activePage: 'dashboard'}) %>
+
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <div>
+            <h1><i class="fa-solid fa-gauge-high"></i> Admin Dashboard</h1>
+            <p>Manage your JPL Auction</p>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <div class="stat-card stat-primary">
+            <div class="stat-icon-wrapper bg-primary">
+                <i class="fa-solid fa-users"></i>
+            </div>
+            <div class="stat-content">
+                <h3><%= totalPlayers %></h3>
+                <p>Total Players</p>
+            </div>
+        </div>
+
+        <div class="stat-card stat-success">
+            <div class="stat-icon-wrapper bg-success">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="stat-content">
+                <h3><%= soldPlayers %></h3>
+                <p>Players Sold</p>
+            </div>
+        </div>
+
+        <div class="stat-card stat-warning">
+            <div class="stat-icon-wrapper bg-warning">
+                <i class="fa-solid fa-clock"></i>
+            </div>
+            <div class="stat-content">
+                <h3><%= unsoldPlayers %></h3>
+                <p>Players Unsold</p>
+            </div>
+        </div>
+
+        <div class="stat-card stat-info">
+            <div class="stat-icon-wrapper bg-info">
+                <i class="fa-solid fa-indian-rupee-sign"></i>
+            </div>
+            <div class="stat-content">
+                <h3>₹<%= totalAuctionValue.toLocaleString('en-IN') %></h3>
+                <p>Total Value</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions glass-card">
+        <h2><i class="fa-solid fa-bolt"></i> Quick Actions</h2>
+        <div class="action-buttons">
+            <a href="/admin/players/add" class="btn btn-primary">
+                <i class="fa-solid fa-user-plus"></i> Add Player
+            </a>
+            <a href="/admin/players/bulk" class="btn btn-secondary">
+                <i class="fa-solid fa-list-check"></i> Bulk Add Players
+            </a>
+            <a href="/admin/teams/create" class="btn btn-success">
+                <i class="fa-solid fa-trophy"></i> Setup Teams
+            </a>
+            <a href="/admin/auction" class="btn btn-danger">
+                <i class="fa-solid fa-gavel"></i> Start Auction
+            </a>
+        </div>
+    </div>
+
+    <!-- Teams Overview -->
+    <div class="teams-overview glass-card">
+        <h2><i class="fa-solid fa-shield-halved"></i> Teams Overview</h2>
+        <% if (teams && teams.length > 0) { %>
+            <div class="teams-grid">
+                <% teams.forEach(team => { %>
+                    <div class="team-card" style="border-left: 4px solid <%= team.color %>">
+                        <h3><%= team.teamName %></h3>
+                        <div class="team-stats">
+                            <p><strong>Players:</strong> <%= team.playersCount %>/9</p>
+                            <p><strong>Remaining:</strong> ₹<%= team.remainingPurse.toLocaleString('en-IN') %></p>
+                            <p><strong>Spent:</strong> ₹<%= (team.initialPurse - team.remainingPurse).toLocaleString('en-IN') %></p>
+                        </div>
+                        <a href="/admin/teams/<%= team._id %>" class="btn btn-sm"><i class="fa-solid fa-eye"></i> View Details</a>
+                    </div>
+                <% }) %>
+            </div>
+        <% } else { %>
+            <p class="no-data">No teams created yet. <a href="/admin/teams/create">Create teams</a> to get started!</p>
+        <% } %>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="recent-activity glass-card">
+        <h2><i class="fa-solid fa-clock-rotate-left"></i> Recent Sales</h2>
+        <% if (recentSales && recentSales.length > 0) { %>
+            <table class="activity-table">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Category</th>
+                        <th>Team</th>
+                        <th>Price</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% recentSales.forEach(sale => { %>
+                        <tr>
+                            <td><%= sale.playerName %></td>
+                            <td><span class="badge badge-<%= sale.category %>"><%= sale.category %></span></td>
+                            <td><%= sale.teamName %></td>
+                            <td>₹<%= sale.price.toLocaleString('en-IN') %></td>
+                            <td><%= new Date(sale.time).toLocaleTimeString() %></td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        <% } else { %>
+            <p class="no-data">No sales yet. Start the auction to begin!</p>
+        <% } %>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,216 @@
+<%- include('../partials/header', {title: 'Settings & Utilities', showNav: true, activePage: 'settings'}) %>
+
+<div class="settings-container">
+    <div class="page-header">
+        <h1><i class="fa-solid fa-gear"></i> Settings & Utilities</h1>
+        <p>Manage auction settings and run utility functions</p>
+    </div>
+
+    <div class="danger-zone glass-card">
+        <h2><i class="fa-solid fa-triangle-exclamation"></i> Danger Zone</h2>
+        <p>These actions are irreversible. Use with extreme caution.</p>
+        
+        <div class="danger-actions">
+            <button class="btn btn-warning" onclick="confirmResetAuctionKeepData()" 
+                    style="background-color: #ff9800;">
+                <i class="fa-solid fa-rotate"></i> Reset Auction (Keep Players & Teams)
+            </button>
+            <button class="btn btn-danger" onclick="confirmResetAuction()">
+                <i class="fa-solid fa-trash-can"></i> Reset Entire Auction
+            </button>
+            <button class="btn btn-warning" onclick="validateIntegrity()">
+                <i class="fa-solid fa-clipboard-check"></i> Validate Auction Integrity
+            </button>
+            <button class="btn btn-secondary" onclick="recalculateStats()">
+                <i class="fa-solid fa-calculator"></i> Recalculate Team Stats
+            </button>
+        </div>
+    </div>
+
+    <div class="utility-section glass-card">
+        <h2><i class="fa-solid fa-database"></i> Database Utilities</h2>
+        <div class="utility-buttons">
+            <button class="btn btn-primary" onclick="exportDatabase()">
+                <i class="fa-solid fa-download"></i> Export Database Backup
+            </button>
+            <button class="btn btn-secondary" onclick="viewLogs()">
+                <i class="fa-solid fa-scroll"></i> View System Logs
+            </button>
+        </div>
+    </div>
+
+    <div class="utility-section glass-card">
+        <h2><i class="fa-solid fa-spinner"></i> Auction Progress</h2>
+        <div id="auction-progress-info">
+            <p>Loading...</p>
+        </div>
+        <button class="btn btn-info" onclick="refreshProgress()" style="margin-top: 1rem;">
+            <i class="fa-solid fa-arrows-rotate"></i> Refresh Progress
+        </button>
+    </div>
+
+    <div id="result-display" class="result-display" style="display: none;"></div>
+</div>
+
+<script>
+// Load auction progress on page load
+document.addEventListener('DOMContentLoaded', refreshProgress);
+
+async function refreshProgress() {
+    try {
+        const response = await fetch('/admin/api/auction-progress');
+        const progress = await response.json();
+        
+        document.getElementById('auction-progress-info').innerHTML = `
+            <div class="stats-grid" style="margin-top: 1rem;">
+                <div class="stat-card stat-primary">
+                    <div class="stat-content">
+                        <h3>${progress.total}</h3>
+                        <p>Total Players</p>
+                    </div>
+                </div>
+                <div class="stat-card stat-success">
+                    <div class="stat-content">
+                        <h3>${progress.sold}</h3>
+                        <p>Sold</p>
+                    </div>
+                </div>
+                <div class="stat-card stat-warning">
+                    <div class="stat-content">
+                        <h3>${progress.unsold}</h3>
+                        <p>Unsold</p>
+                    </div>
+                </div>
+                <div class="stat-card stat-info">
+                    <div class="stat-content">
+                        <h3>${progress.progress}%</h3>
+                        <p>Progress</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        document.getElementById('auction-progress-info').innerHTML = 
+            '<p style="color: red;">Error loading progress</p>';
+    }
+}
+
+async function confirmResetAuctionKeepData() {
+    const confirmed = confirm('🔄 RESET AUCTION (Keep Players & Teams)\n\n' +
+        'This will:\n' +
+        '✅ Keep all registered players\n' +
+        '✅ Keep all teams\n' +
+        '❌ Mark all sold players as unsold\n' +
+        '❌ Clear all team rosters\n' +
+        '❌ Reset all team purses to ₹1,00,000\n' +
+        '❌ Clear auction state\n\n' +
+        'This is useful when you want to re-run the auction with the same players and teams.\n\n' +
+        'This action CANNOT be undone!\n\n' +
+        'Are you sure?');
+    
+    if (!confirmed) return;
+    
+    const doubleConfirm = prompt('Type "RESET" to confirm:');
+    if (doubleConfirm !== 'RESET') {
+        alert('Reset cancelled');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/admin/api/reset-auction-keep-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        showResult(result.message, result.success ? 'success' : 'error');
+        
+        if (result.success) {
+            setTimeout(() => location.reload(), 2000);
+        }
+    } catch (error) {
+        showResult('Error: ' + error.message, 'error');
+    }
+}
+
+async function confirmResetAuction() {
+    const confirmed = confirm('⚠️ WARNING: This will reset the ENTIRE auction!\n\nAll sold players will be marked unsold.\nAll teams will be reset to ₹1,00,000.\n\nThis action CANNOT be undone!\n\nAre you absolutely sure?');
+    
+    if (!confirmed) return;
+    
+    const doubleConfirm = prompt('Type "RESET AUCTION" to confirm:');
+    if (doubleConfirm !== 'RESET AUCTION') {
+        alert('Reset cancelled');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/admin/api/reset-auction', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        showResult(result.message, result.success ? 'success' : 'error');
+        
+        if (result.success) {
+            setTimeout(() => location.reload(), 2000);
+        }
+    } catch (error) {
+        showResult('Error: ' + error.message, 'error');
+    }
+}
+
+async function validateIntegrity() {
+    try {
+        const response = await fetch('/admin/api/validate-integrity');
+        const result = await response.json();
+        
+        if (result.isValid) {
+            showResult('✅ Auction data is valid. No issues found.', 'success');
+        } else {
+            let message = '❌ Issues found:\n\n' + result.issues.join('\n');
+            showResult(message, 'error');
+        }
+    } catch (error) {
+        showResult('Error: ' + error.message, 'error');
+    }
+}
+
+async function recalculateStats() {
+    if (!confirm('Recalculate all team statistics?')) return;
+    
+    try {
+        const response = await fetch('/admin/api/recalculate-stats', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        showResult(result.message, result.success ? 'success' : 'error');
+    } catch (error) {
+        showResult('Error: ' + error.message, 'error');
+    }
+}
+
+function showResult(message, type) {
+    const display = document.getElementById('result-display');
+    display.className = `result-display alert-${type}`;
+    display.textContent = message;
+    display.style.display = 'block';
+    
+    setTimeout(() => {
+        display.style.display = 'none';
+    }, 5000);
+}
+
+function exportDatabase() {
+    alert('Database backup feature - implement with MongoDB export');
+}
+
+function viewLogs() {
+    alert('System logs viewer - implement as needed');
+}
+</script>
+
+<%- include('../partials/footer') %>

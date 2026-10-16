@@ -1,0 +1,157 @@
+<%- include('../partials/header', {title: 'Add Player', showNav: true, activePage: 'players'}) %>
+
+<div class="form-container">
+    <div class="form-header">
+        <h1><i class="fa-solid fa-user-plus"></i> Add New Player</h1>
+        <p>Enter player details for registration</p>
+    </div>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+        <div class="alert alert-success">
+            <i class="fa-solid fa-circle-check"></i> <%= success %>
+        </div>
+    <% } %>
+
+    <% if (typeof error !== 'undefined' && error) { %>
+        <div class="alert alert-error">
+            <i class="fa-solid fa-circle-exclamation"></i> <%= error %>
+        </div>
+    <% } %>
+
+    <form method="POST" action="/admin/players/add" class="player-form" id="addPlayerForm">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="name">Player Name <span class="required">*</span></label>
+                <input 
+                    type="text" 
+                    id="name" 
+                    name="name" 
+                    class="form-control"
+                    required
+                    autofocus
+                    placeholder="Enter full name"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="phoneNumber">Phone Number <span class="required">*</span></label>
+                <input 
+                    type="tel" 
+                    id="phoneNumber" 
+                    name="phoneNumber" 
+                    class="form-control"
+                    required
+                    pattern="[0-9]{10}"
+                    maxlength="10"
+                    placeholder="10 digit mobile number"
+                >
+                <small class="form-text">Enter 10 digit number without +91</small>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="jerseySize">Jersey Size <span class="required">*</span></label>
+                <select id="jerseySize" name="jerseySize" class="form-control" required>
+                    <option value="">Select Size</option>
+                    <option value="S">S - Small</option>
+                    <option value="M">M - Medium</option>
+                    <option value="L">L - Large</option>
+                    <option value="XL">XL - Extra Large</option>
+                    <option value="XXL">XXL - Double XL</option>
+                    <option value="XXXL">XXXL - Triple XL</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="age">Age</label>
+                <input 
+                    type="number" 
+                    id="age" 
+                    name="age" 
+                    class="form-control"
+                    min="14"
+                    max="80"
+                    placeholder="Enter age"
+                >
+                <small class="form-text">Age between 14 and 80</small>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="playerType">Player Type <span class="required">*</span></label>
+                <select id="playerType" name="playerType" class="form-control" required>
+                    <option value="">Select Player Type</option>
+                    <option value="Batsman">Batsman</option>
+                    <option value="Bowler">Bowler</option>
+                    <option value="Batting All Rounder">Batting All Rounder</option>
+                    <option value="Bowling All Rounder">Bowling All Rounder</option>
+                    <option value="Wicket Keeper Batsman">Wicket Keeper Batsman</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="category">Category <span class="required">*</span></label>
+                <select id="category" name="category" class="form-control" required>
+                    <option value="">Select Category</option>
+                    <option value="A">Category A - ₹75,000 (Best Players)</option>
+                    <option value="B">Category B - ₹30,000 (Mid-Tier)</option>
+                    <option value="C">Category C - ₹10,000</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="imageUrl">Player Image URL</label>
+                <input 
+                    id="imageUrl" 
+                    name="imageUrl" 
+                    class="form-control"
+                    placeholder="https://example.com/player-image.jpg"
+                >
+                <small class="form-text">Optional: Enter direct URL to player's image</small>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Player</button>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('addPlayerForm').reset()"><i class="fa-solid fa-rotate-left"></i> Clear Form</button>
+            <a href="/admin/players" class="btn btn-outline"><i class="fa-solid fa-list"></i> View All Players</a>
+        </div>
+    </form>
+
+    <div class="form-tips glass-card">
+        <h3><i class="fa-solid fa-lightbulb"></i> Quick Tips:</h3>
+        <ul>
+            <li>All fields marked with <span class="required">*</span> are mandatory</li>
+            <li>Phone numbers must be unique (no duplicates)</li>
+            <li>Category determines the base price for auction</li>
+            <li>After adding, you can quickly add another player</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+// Auto-focus on name field after form submission
+window.addEventListener('DOMContentLoaded', () => {
+    const successAlert = document.querySelector('.alert-success');
+    if (successAlert) {
+        document.getElementById('name').focus();
+        // Auto-dismiss success message
+        setTimeout(() => {
+            successAlert.style.display = 'none';
+        }, 3000);
+    }
+});
+
+// Phone number validation
+document.getElementById('phoneNumber').addEventListener('input', function(e) {
+    this.value = this.value.replace(/[^0-9]/g, '');
+});
+</script>
+
+<%- include('../partials/footer') %>

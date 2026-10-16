@@ -1,0 +1,156 @@
+<%- include('../partials/header', {title: 'Players Management', showNav: true, activePage: 'players'}) %>
+
+<div class="players-container">
+    <div class="page-header">
+        <h1><i class="fa-solid fa-users"></i> Players Management</h1>
+        <div class="header-actions">
+            <a href="/admin/players/add" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add Player</a>
+            <a href="/admin/players/bulk" class="btn btn-secondary"><i class="fa-solid fa-list-check"></i> Bulk Add</a>
+            <a href="/admin/players/reorder" class="btn btn-secondary" style="background:var(--accent-gold,#f59e0b);color:#000;"><i class="fa-solid fa-arrow-up-down"></i> Reorder Players</a>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters-section glass-card">
+        <form method="GET" action="/admin/players" class="filters-form">
+            <div class="filter-group">
+                <label>Search by Name:</label>
+                <input 
+                    type="text" 
+                    name="search" 
+                    placeholder="Search player name..."
+                    value="<%= appliedFilters.search || '' %>"
+                    class="form-control"
+                >
+            </div>
+
+            <div class="filter-group">
+                <label>Category:</label>
+                <select name="category" class="form-control">
+                    <option value="all">All Categories</option>
+                    <option value="A" <%= appliedFilters.category === 'A' ? 'selected' : '' %>>A (₹5,000)</option>
+                    <option value="B" <%= appliedFilters.category === 'B' ? 'selected' : '' %>>B (₹3,000)</option>
+                    <option value="C" <%= appliedFilters.category === 'C' ? 'selected' : '' %>>C (₹2,000)</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Status:</label>
+                <select name="status" class="form-control">
+                    <option value="all">All Status</option>
+                    <option value="unsold" <%= appliedFilters.status === 'unsold' ? 'selected' : '' %>>Unsold</option>
+                    <option value="sold" <%= appliedFilters.status === 'sold' ? 'selected' : '' %>>Sold</option>
+                    <option value="withdrawn" <%= appliedFilters.status === 'withdrawn' ? 'selected' : '' %>>Withdrawn</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter"></i> Apply Filters</button>
+                <a href="/admin/players" class="btn btn-secondary"><i class="fa-solid fa-xmark"></i> Clear</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Statistics Bar -->
+    <div class="stats-bar">
+        <div class="stat-item">
+            <span class="stat-label">Total:</span>
+            <span class="stat-value"><%= statusCounts.total %></span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Unsold:</span>
+            <span class="stat-value stat-warning"><%= statusCounts.unsold %></span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Sold:</span>
+            <span class="stat-value stat-success"><%= statusCounts.sold %></span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Withdrawn:</span>
+            <span class="stat-value stat-danger"><%= statusCounts.withdrawn %></span>
+        </div>
+    </div>
+
+    <!-- Players Table -->
+    <div class="table-container">
+        <% if (players && players.length > 0) { %>
+            <table class="players-table">
+                <thead>
+                    <tr>
+                        <th>Player #</th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Jersey Size</th>
+                        <th>Jersey #</th>
+                        <th>Player Type</th>
+                        <th>Category</th>
+                        <th>Base Price</th>
+                        <th>Status</th>
+                        <th>Sold To</th>
+                        <th>Sold Price</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% players.forEach(player => { %>
+                        <tr>
+                            <td><strong>#<%= player.playerNumber %></strong></td>
+                            <td><%= player.name %></td>
+                            <td><%= player.phoneNumber %></td>
+                            <td><%= player.jerseySize || '-' %></td>
+                            <td><%= player.playerType || '-' %></td>
+                            <td>
+                                <span class="badge badge-<%= player.category %>">
+                                    <%= player.category %>
+                                </span>
+                            </td>
+                            <td>₹<%= (player.basePrice || 0).toLocaleString('en-IN') %></td>
+                            <td>
+                                <span class="status-badge status-<%= player.status %>">
+                                    <%= player.status %>
+                                </span>
+                            </td>
+                            <td>
+                                <% if (player.soldTo) { %>
+                                    <%= player.soldTo.teamName %>
+                                <% } else { %>
+                                    -
+                                <% } %>
+                            </td>
+                            <td>
+                                <% if (player.soldPrice > 0) { %>
+                                    ₹<%= player.soldPrice.toLocaleString('en-IN') %>
+                                <% } else { %>
+                                    -
+                                <% } %>
+                            </td>
+                            <td class="actions-cell">
+                                <a href="/admin/players/edit/<%= player._id %>" class="btn btn-sm btn-secondary" title="Edit Player"><i class="fa-solid fa-pen"></i> Edit</a>
+                                <% if (player.status === 'unsold' || player.status === 'withdrawn') { %>
+                                    <form method="POST" action="/admin/players/delete/<%= player._id %>" style="display: inline;">
+                                        <button 
+                                            type="submit" 
+                                            class="btn btn-sm btn-danger"
+                                            title="Delete Player"
+                                            onclick="return confirm('Are you sure you want to delete this player?')"
+                                        >
+                                            <i class="fa-solid fa-trash"></i> Delete
+                                        </button>
+                                    </form>
+                                <% } %>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        <% } else { %>
+            <div class="no-data">
+                <i class="fa-solid fa-users-slash" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                <p>No players found matching your filters.</p>
+                <a href="/admin/players/add" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add First Player</a>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

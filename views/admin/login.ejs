@@ -1,0 +1,46 @@
+<%- include('../partials/header', {title: 'Admin Login', showNav: false, activePage: 'login'}) %>
+
+<div class="login-container">
+    <div class="login-floating-shapes">
+        <div class="floating-shape shape-1"></div>
+        <div class="floating-shape shape-2"></div>
+        <div class="floating-shape shape-3"></div>
+    </div>
+    <div class="login-card glass-card">
+        <div class="login-header">
+            <img src="/images/logo.svg" alt="JPL Logo" class="login-logo">
+            <h1>JPL Auction</h1>
+            <p>Admin Control Panel</p>
+        </div>
+        
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="alert alert-error">
+                <i class="fa-solid fa-circle-exclamation"></i> <%= error %>
+            </div>
+        <% } %>
+        
+        <form action="/admin/login" method="POST" class="login-form">
+            <div class="form-group">
+                <label for="password"><i class="fa-solid fa-lock"></i> Password</label>
+                <div class="input-icon-wrapper">
+                    <i class="fa-solid fa-key input-icon"></i>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-control" 
+                        required 
+                        autofocus
+                        placeholder="Enter admin password"
+                    >
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fa-solid fa-right-to-bracket"></i> Login to Admin Panel
+            </button>
+        </form>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

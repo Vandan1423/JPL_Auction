@@ -1,0 +1,169 @@
+<%- include('../partials/header', {title: 'Reorder Players', showNav: true, activePage: 'players'}) %>
+
+<!-- SortableJS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+<div class="players-container">
+    <div class="page-header">
+        <h1><i class="fa-solid fa-arrow-up-down"></i> Reorder Players</h1>
+        <div class="header-actions">
+            <a href="/admin/players" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Back to Players</a>
+            <button id="saveOrderBtn" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Order</button>
+        </div>
+    </div>
+
+    <div class="glass-card" style="padding: 1rem 1.5rem; margin-bottom: 1.5rem; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3);">
+        <p style="margin:0; color: var(--text-secondary, #94a3b8);">
+            <i class="fa-solid fa-circle-info" style="color:#f59e0b;"></i>
+            &nbsp;Drag rows to set the auction order. Players at the top will be auctioned first.
+            Only <strong>unsold</strong> players are shown here.
+        </p>
+    </div>
+
+    <% if (players && players.length > 0) { %>
+    <div id="save-banner" style="display:none; padding: 0.65rem 1rem; margin-bottom: 1rem; background: rgba(245,158,11,0.15); border: 1px solid #f59e0b; border-radius: 8px; color: #f59e0b; font-weight: 600;">
+        <i class="fa-solid fa-triangle-exclamation"></i> You have unsaved changes. Click <strong>Save Order</strong> to apply.
+    </div>
+
+    <div class="table-container">
+        <table class="players-table" id="reorderTable">
+            <thead>
+                <tr>
+                    <th style="width:40px;"></th>
+                    <th style="width:60px;">Order</th>
+                    <th>Player #</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th>Base Price</th>
+                </tr>
+            </thead>
+            <tbody id="sortableBody">
+                <% players.forEach((player, index) => { %>
+                <tr class="sortable-row" data-id="<%= player._id %>">
+                    <td class="drag-handle" title="Drag to reorder" style="cursor:grab; text-align:center; color: var(--text-muted, #64748b); font-size:1.1rem;">
+                        <i class="fa-solid fa-grip-vertical"></i>
+                    </td>
+                    <td class="order-num" style="font-weight:700; color:#f59e0b; text-align:center;"><%= index + 1 %></td>
+                    <td><strong>#<%= player.playerNumber %></strong></td>
+                    <td><%= player.name %></td>
+                    <td>
+                        <span class="badge badge-<%= player.category %>"><%= player.category %></span>
+                    </td>
+                    <td style="font-size:0.85rem;"><%= player.playerType %></td>
+                    <td>₹<%= (player.basePrice || 0).toLocaleString('en-IN') %></td>
+                </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+
+    <div style="margin-top:1.5rem; text-align:right;">
+        <button id="saveOrderBtnBottom" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Order</button>
+    </div>
+
+    <% } else { %>
+    <div class="no-data">
+        <i class="fa-solid fa-users-slash" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+        <p>No unsold players to reorder.</p>
+        <a href="/admin/players" class="btn btn-secondary">Back to Players</a>
+    </div>
+    <% } %>
+</div>
+
+<script>
+(function () {
+    const tbody = document.getElementById('sortableBody');
+    if (!tbody) return;
+
+    let dirty = false;
+
+    // Init SortableJS
+    Sortable.create(tbody, {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: function () {
+            refreshOrderNumbers();
+            dirty = true;
+            document.getElementById('save-banner').style.display = 'block';
+        }
+    });
+
+    function refreshOrderNumbers() {
+        const rows = tbody.querySelectorAll('.sortable-row');
+        rows.forEach((row, i) => {
+            row.querySelector('.order-num').textContent = i + 1;
+        });
+    }
+
+    async function saveOrder() {
+        const rows = tbody.querySelectorAll('.sortable-row');
+        const playerIds = Array.from(rows).map(r => r.dataset.id);
+
+        const btn = document.getElementById('saveOrderBtn');
+        const btnBottom = document.getElementById('saveOrderBtnBottom');
+        [btn, btnBottom].forEach(b => { if (b) { b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...'; } });
+
+        try {
+            const res = await fetch('/admin/api/players/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerIds })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                dirty = false;
+                document.getElementById('save-banner').style.display = 'none';
+                showToast('Order saved! Players will be auctioned in this sequence.', 'success');
+            } else {
+                showToast('Error: ' + data.message, 'error');
+            }
+        } catch (e) {
+            showToast('Network error. Please try again.', 'error');
+        } finally {
+            [btn, btnBottom].forEach(b => { if (b) { b.disabled = false; b.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Order'; } });
+        }
+    }
+
+    document.getElementById('saveOrderBtn')?.addEventListener('click', saveOrder);
+    document.getElementById('saveOrderBtnBottom')?.addEventListener('click', saveOrder);
+
+    window.addEventListener('beforeunload', e => {
+        if (dirty) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    function showToast(msg, type) {
+        const existing = document.getElementById('reorder-toast');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.id = 'reorder-toast';
+        toast.style.cssText = `
+            position:fixed; bottom:2rem; right:2rem; z-index:9999;
+            padding:0.9rem 1.4rem; border-radius:10px; font-weight:600;
+            font-size:0.95rem; box-shadow:0 4px 20px rgba(0,0,0,0.35);
+            background:${type === 'success' ? '#10b981' : '#ef4444'};
+            color:#fff; display:flex; align-items:center; gap:0.6rem;
+            animation: slideUp 0.3s ease;
+        `;
+        toast.innerHTML = `<i class="fa-solid fa-${type === 'success' ? 'check-circle' : 'circle-xmark'}"></i> ${msg}`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3500);
+    }
+})();
+</script>
+
+<style>
+.sortable-row { cursor: default; transition: background 0.15s; }
+.sortable-row:hover { background: rgba(255,255,255,0.04); }
+.sortable-ghost { opacity: 0.4; background: rgba(245,158,11,0.15) !important; }
+.drag-handle:hover { color: #f59e0b !important; }
+@keyframes slideUp {
+    from { opacity:0; transform:translateY(20px); }
+    to { opacity:1; transform:translateY(0); }
+}
+</style>
+
+<%- include('../partials/footer') %>

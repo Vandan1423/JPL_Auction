@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.env
+.DS_Store
+.vscode/
+coverage/
+npm-debug.log*
+yarn-error.log*
+.idea/
+*.log
+*.swp
+*.swo
+
+# Runtime output
+logs/
+exports/
+
+# Real player data must never be committed
+*.csv
+public/playerImages/
+public/images/teamLogos/

@@ -1,0 +1,285 @@
+<%- include('../partials/header', {title: 'Teams Management', showNav: true, activePage: 'teams'}) %>
+
+<div class="teams-management-container">
+    <div class="page-header">
+        <h1><i class="fa-solid fa-shield-halved"></i> Teams Management</h1>
+        <% if (teams && teams.length === 0) { %>
+            <form method="POST" action="/admin/teams/create">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Create 8 Teams</button>
+            </form>
+        <% } %>
+    </div>
+
+    <!-- Overall Statistics -->
+    <% if (teams && teams.length > 0) { %>
+        <div class="auction-stats">
+            <div class="stat-card">
+                <h3><%= totalPlayersSold %>/<%= totalPlayers %></h3>
+                <p>Players Sold</p>
+            </div>
+            <div class="stat-card">
+                <h3>₹<%= totalMoneySpent.toLocaleString('en-IN') %></h3>
+                <p>Total Spent</p>
+            </div>
+            <div class="stat-card">
+                <h3><%= remainingPlayers %></h3>
+                <p>Players Remaining</p>
+            </div>
+            <div class="stat-card">
+                <h3>₹<%= ((totalBudget - totalMoneySpent) / 1000).toFixed(0) %>K</h3>
+                <p>Money Remaining</p>
+            </div>
+        </div>
+
+        <!-- Teams Grid -->
+        <div class="teams-grid">
+            <% teams.forEach(team => { %>
+                <div class="team-card" style="border-left: 5px solid <%= team.color %>">
+                    <div class="team-header">
+                        <% if (team.logo) { %>
+                            <img src="<%= team.logo %>" alt="<%= team.teamName %>" class="team-logo" style="width: 50px; height: 50px; object-fit: contain; margin-right: 10px;">
+                        <% } %>
+                        <h2 style="color: <%= team.color %>">
+                            <%= team.teamName %>
+                            <button 
+                                class="btn-icon" 
+                                onclick="editTeamName('<%= team._id %>', '<%= team.teamName %>')"
+                                title="Edit Team Name"
+                            >
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                        </h2>
+                        <span class="team-number">#<%= team.teamNumber %></span>
+                    </div>
+
+                    <div class="team-info">
+                        <div class="info-row">
+                            <span class="label">Captain:</span>
+                            <span class="value">
+                                <%= team.captain || 'Not Assigned' %>
+                                <button 
+                                    class="btn-icon" 
+                                    onclick="editCaptain('<%= team._id %>', '<%= team.captain %>')"
+                                    title="Edit Captain"
+                                >
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                            </span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="label">Players:</span>
+                            <span class="value">
+                                <%= team.playersCount %>/9
+                                <div class="progress-bar">
+                                    <div 
+                                        class="progress-fill" 
+                                        style="width: <%= (team.playersCount / 9) * 100 %>%; background: <%= team.color %>"
+                                    ></div>
+                                </div>
+                            </span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="label">Remaining Purse:</span>
+                            <span class="value value-highlight">
+                                ₹<%= team.remainingPurse.toLocaleString('en-IN') %>
+                            </span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="label">Total Spent:</span>
+                            <span class="value">
+                                ₹<%= team.totalSpent.toLocaleString('en-IN') %>
+                            </span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="label">Budget Used:</span>
+                            <span class="value">
+                                <%= team.budgetUtilization.toFixed(1) %>%
+                            </span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="label">Avg Price:</span>
+                            <span class="value">
+                                <% if (team.playersCount > 0) { %>
+                                    ₹<%= Math.round(team.totalSpent / team.playersCount).toLocaleString('en-IN') %>
+                                <% } else { %>
+                                    -
+                                <% } %>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Category Breakdown -->
+                    <div class="category-breakdown">
+                        <h4>Squad Composition</h4>
+                        <div class="category-badges">
+                            <span class="cat-badge cat-A">
+                                A: <%= team.categoryBreakdown.A || 0 %>
+                            </span>
+                            <span class="cat-badge cat-B">
+                                B: <%= team.categoryBreakdown.B || 0 %>
+                            </span>
+                            <span class="cat-badge cat-C">
+                                C: <%= team.categoryBreakdown.C || 0 %>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="team-actions">
+                        <a href="/admin/teams/<%= team._id %>" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-eye"></i> View Details
+                        </a>
+                        <button 
+                            class="btn btn-sm btn-danger" 
+                            onclick="resetTeam('<%= team._id %>', '<%= team.teamName %>')"
+                        >
+                            <i class="fa-solid fa-rotate-left"></i> Reset Team
+                        </button>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    <% } else { %>
+        <div class="no-teams">
+            <div class="no-teams-content">
+                <i class="fa-solid fa-shield-halved" style="font-size: 4rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                <h2>No Teams Created Yet</h2>
+                <p>Create 8 teams to start the auction process</p>
+                <form method="POST" action="/admin/teams/create">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fa-solid fa-plus"></i> Create 8 Teams Now
+                    </button>
+                </form>
+            </div>
+        </div>
+    <% } %>
+</div>
+
+<!-- Edit Team Name Modal -->
+<div id="editTeamNameModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3>Edit Team Name</h3>
+        <form id="editTeamNameForm">
+            <input type="hidden" id="editTeamNameId">
+            <div class="form-group">
+                <label>Team Name:</label>
+                <input type="text" id="teamNameInput" class="form-control" required>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-secondary" onclick="closeTeamNameModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Captain Modal -->
+<div id="editCaptainModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3>Edit Team Captain</h3>
+        <form id="editCaptainForm">
+            <input type="hidden" id="editTeamId">
+            <div class="form-group">
+                <label>Captain Name:</label>
+                <input type="text" id="captainName" class="form-control" required>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-secondary" onclick="closeCaptainModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Team Name Editing
+function editTeamName(teamId, currentName) {
+    document.getElementById('editTeamNameId').value = teamId;
+    document.getElementById('teamNameInput').value = currentName || '';
+    document.getElementById('editTeamNameModal').style.display = 'flex';
+}
+
+function closeTeamNameModal() {
+    document.getElementById('editTeamNameModal').style.display = 'none';
+}
+
+document.getElementById('editTeamNameForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const teamId = document.getElementById('editTeamNameId').value;
+    const teamName = document.getElementById('teamNameInput').value;
+    
+    try {
+        const response = await fetch(`/admin/teams/${teamId}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ teamName })
+        });
+        
+        if (response.ok) {
+            alert('Team name updated successfully!');
+            location.reload();
+        } else {
+            alert('Error updating team name');
+        }
+    } catch (error) {
+        alert('Error updating team name');
+    }
+});
+
+// Captain Editing
+function editCaptain(teamId, currentCaptain) {
+    document.getElementById('editTeamId').value = teamId;
+    document.getElementById('captainName').value = currentCaptain || '';
+    document.getElementById('editCaptainModal').style.display = 'flex';
+}
+
+function closeCaptainModal() {
+    document.getElementById('editCaptainModal').style.display = 'none';
+}
+
+// Legacy function for backward compatibility
+function closeModal() {
+    closeCaptainModal();
+    closeTeamNameModal();
+}
+
+document.getElementById('editCaptainForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const teamId = document.getElementById('editTeamId').value;
+    const captain = document.getElementById('captainName').value;
+    
+    try {
+        const response = await fetch(`/admin/teams/${teamId}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ captain })
+        });
+        
+        if (response.ok) {
+            alert('Captain updated successfully!');
+            location.reload();
+        } else {
+            alert('Error updating captain');
+        }
+    } catch (error) {
+        alert('Error updating captain');
+    }
+});
+
+function resetTeam(teamId, teamName) {
+    if (confirm(`Are you sure you want to reset ${teamName}? This will release all players and restore purse to ₹1,00,000.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/teams/${teamId}/reset`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/admin.css">
+    <style>
+        .error-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .error-content {
+            max-width: 600px;
+        }
+        
+        .error-emoji {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            animation: bounce 2s ease-in-out infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .error-content h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .error-content h2 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            opacity: 0.9;
+            margin-bottom: 1rem;
+        }
+        
+        .error-content p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+        }
+        
+        .error-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .error-btn {
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .error-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .error-btn-primary {
+            background: white;
+            color: #667eea;
+        }
+        
+        .error-btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        
+        .error-btn-secondary:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .error-code {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.9rem;
+            opacity: 0.5;
+        }
+        
+        /* 404 specific */
+        .error-404 {
+            font-size: 8rem;
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            text-shadow: 4px 4px 0 rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-content">
+            <% if (title.includes('404')) { %>
+                <div class="error-404">404</div>
+                <h2>Page Not Found</h2>
+            <% } else { %>
+                <div class="error-emoji">😕</div>
+                <h1>Oops!</h1>
+                <h2><%= title %></h2>
+            <% } %>
+            
+            <p><%= message %></p>
+            
+            <div class="error-actions">
+                <a href="/admin/dashboard" class="error-btn error-btn-primary">
+                    🏠 Go to Dashboard
+                </a>
+                <a href="javascript:history.back()" class="error-btn error-btn-secondary">
+                    ← Go Back
+                </a>
+                <a href="/display" class="error-btn error-btn-secondary">
+                    📺 Public Display
+                </a>
+            </div>
+        </div>
+        
+        <div class="error-code">
+            JPL Auction App • <%= new Date().getFullYear() %>
+        </div>
+    </div>
+</body>
+</html>
