@@ -1,447 +1,386 @@
+import mongoose from 'mongoose';
 import Player from '../models/Player.js';
-import { validatePlayerData, getCategoryConfig } from '../utils/helpers.js';
+import { JERSEY_SIZES, POOL_STATUSES } from '../config/constants.js';
+import { escapeRegex, toInt } from '../utils/format.js';
+import { fileFor } from '../middleware/upload.js';
+import { deleteImage, imageUrl, uploadImage } from '../services/cloudinary.js';
+import { nextAuctionOrder, nextPlayerNumber } from '../services/tournamentSetup.js';
+import { getAuctionState } from '../services/auction.js';
 
-// 1. Get all players with filtering and grouping
-export const getAllPlayers = async (req, res) => {
+const trim = (value, max = 120) => String(value ?? '').trim().slice(0, max);
+
+/**
+ * Validate player input against the tournament's own roles, categories and
+ * field settings (each optional field can be required, optional or hidden).
+ */
+export function parsePlayerInput(body, tournament) {
+	const fields = tournament.playerFields || {};
+	const mode = (key) => fields[key] || 'optional';
+	const visible = (key) => mode(key) !== 'hidden';
+
+	const data = {
+		name: trim(body.name, 80),
+		role: trim(body.role, 40),
+		category: trim(body.category, 40),
+		phone: visible('phone') ? trim(body.phone, 20).replace(/[\s-]/g, '') : '',
+		jerseySize: visible('jerseySize') ? trim(body.jerseySize, 5).toUpperCase() : '',
+		jerseyNumber: visible('jerseyNumber') ? trim(body.jerseyNumber, 4) : '',
+		age: visible('age') ? toInt(body.age) : null,
+	};
+
+	const errors = [];
+	if (!data.name) errors.push('Name is required');
+	if (!data.role) errors.push('Role is required');
+	else if (!tournament.roles.includes(data.role)) errors.push(`"${data.role}" is not a role in this tournament`);
+	if (!data.category) errors.push('Category is required');
+	else if (!mongoose.isValidObjectId(data.category) || !tournament.getCategory(data.category)) {
+		errors.push('Pick a valid category');
+	}
+
+	if (mode('phone') === 'required' && !data.phone) errors.push('Phone number is required');
+	if (data.phone && !/^\+?\d{6,15}$/.test(data.phone)) errors.push('Phone number should be 6–15 digits');
+
+	if (mode('jerseySize') === 'required' && !data.jerseySize) errors.push('Jersey size is required');
+	if (data.jerseySize && !JERSEY_SIZES.includes(data.jerseySize)) errors.push('Pick a valid jersey size');
+
+	if (mode('jerseyNumber') === 'required' && !data.jerseyNumber) errors.push('Jersey number is required');
+	if (data.jerseyNumber && !/^\d{1,3}$/.test(data.jerseyNumber)) errors.push('Jersey number should be 0–999');
+
+	if (mode('age') === 'required' && data.age === null) errors.push('Age is required');
+	if (data.age !== null && (data.age < 5 || data.age > 90)) errors.push('Age should be between 5 and 90');
+
+	return { data, errors };
+}
+
+/** Is this phone number already registered to another player in the tournament? */
+async function phoneTaken(tournament, phone, exceptId = null) {
+	if (!phone) return null;
+	return Player.findOne({
+		tournament: tournament._id,
+		phone,
+		...(exceptId ? { _id: { $ne: exceptId } } : {}),
+	})
+		.select('name')
+		.lean();
+}
+
+const formOptions = (tournament) => ({
+	roles: tournament.roles,
+	categories: tournament.categories,
+	jerseySizes: JERSEY_SIZES,
+	fields: tournament.playerFields || {},
+});
+
+// ───────────────────────── List ─────────────────────────
+
+export const getAllPlayers = async (req, res, next) => {
 	try {
-		// Get filters from query params
-		const category = req.query.category;
-		const status = req.query.status;
-		const search = req.query.search;
+		const t = req.tournament;
+		const { category, status, search, role } = req.query;
 
-		// Build MongoDB query object
-		const query = {};
+		const query = { tournament: t._id, isOwner: false };
+		if (category && category !== 'all' && mongoose.isValidObjectId(category)) query.category = category;
+		if (status && status !== 'all') query.status = status === 'pool' ? { $in: POOL_STATUSES } : status;
+		if (role && role !== 'all') query.role = role;
+		if (search) query.name = { $regex: escapeRegex(search), $options: 'i' };
 
-		if (category && category !== 'all') {
-			query.category = category;
-		}
-
-		if (status && status !== 'all') {
-			query.status = status;
-		}
-
-		if (search) {
-			query.name = { $regex: search, $options: 'i' };
-		}
-
-		// Execute query
-		const players = await Player.find(query)
-			.populate('soldTo', 'teamName')
-			.sort({ playerNumber: 1 });
-
-		// Count players by status for filter display
-		const statusCounts = {
-			total: await Player.countDocuments(),
-			unsold: await Player.countDocuments({ status: 'unsold' }),
-			sold: await Player.countDocuments({ status: 'sold' }),
-			withdrawn: await Player.countDocuments({ status: 'withdrawn' }),
-		};
-
-		// Store applied filters for UI
-		const appliedFilters = {
-			category: category || 'all',
-			status: status || 'all',
-			search: search || '',
-		};
+		const [players, statusRows] = await Promise.all([
+			Player.find(query).populate('soldTo', 'name color').sort({ playerNumber: 1 }).lean(),
+			Player.aggregate([
+				{ $match: { tournament: t._id, isOwner: false } },
+				{ $group: { _id: '$status', n: { $sum: 1 } } },
+			]),
+		]);
+		const statusCounts = { total: 0, available: 0, unsold: 0, sold: 0, withdrawn: 0 };
+		statusRows.forEach((r) => {
+			statusCounts[r._id] = r.n;
+			statusCounts.total += r.n;
+		});
 
 		res.render('admin/players', {
-			players,
-			appliedFilters,
+			title: 'Players',
+			players: players.map((p) => ({ ...p, photoThumb: imageUrl(p.photo, 'thumb') })),
 			statusCounts,
-			title: 'Players Management',
+			appliedFilters: { category: category || 'all', status: status || 'all', role: role || 'all', search: search || '' },
 		});
 	} catch (error) {
-		console.error('Error fetching players:', error);
-		res.status(500).send('Error loading players');
+		next(error);
 	}
 };
 
-// 2. Show add player form
+// ───────────────────────── Add ─────────────────────────
+
 export const showAddPlayerForm = (req, res) => {
-	const success = req.session.success;
-	const error = req.session.error;
-
-	// Clear messages from session
-	delete req.session.success;
-	delete req.session.error;
-
 	res.render('admin/add-player', {
-		success,
-		error,
 		title: 'Add Player',
+		values: { category: req.query.category || '' },
+		errors: [],
+		...formOptions(req.tournament),
 	});
 };
 
-// 3. Add new player
-export const addPlayer = async (req, res) => {
+export const addPlayer = async (req, res, next) => {
+	const t = req.tournament;
+	const renderWithErrors = (values, errors) =>
+		res.status(400).render('admin/add-player', { title: 'Add Player', values, errors, ...formOptions(t) });
+
 	try {
-		const { name, phoneNumber, jerseySize, age, category, playerType } = req.body;
+		const { data, errors } = parsePlayerInput(req.body, t);
+		if (req.uploadError) errors.push(req.uploadError);
+		const duplicate = await phoneTaken(t, data.phone);
+		if (duplicate) errors.push(`Phone number ${data.phone} is already registered to ${duplicate.name}`);
+		if (errors.length) return renderWithErrors(data, errors);
 
-		// Validate player data
-		const validation = validatePlayerData({ name, phoneNumber, category, playerType, jerseySize });
-
-		if (!validation.isValid) {
-			req.session.error = validation.errors.join(', ');
-			return res.redirect('/admin/players/add');
+		const photoFile = fileFor(req, 'photo');
+		let photo;
+		if (photoFile) {
+			try {
+				photo = await uploadImage(photoFile.buffer, { tournamentId: t._id, kind: 'players' });
+			} catch (uploadError) {
+				return renderWithErrors(data, [uploadError.message]);
+			}
 		}
 
-		// Check for duplicate phone number
-		const existingPlayer = await Player.findOne({ phoneNumber });
-
-		if (existingPlayer) {
-			req.session.error = `Phone number ${phoneNumber} is already registered for player: ${existingPlayer.name}`;
-			return res.redirect('/admin/players/add');
-		}
-
-		// Create new player
-		const player = new Player({
-			name: name.trim(),
-			phoneNumber: phoneNumber.trim(),
-			jerseySize,
-			...(age ? { age: Number(age) } : {}),
-			category,
-			playerType,
-			// basePrice will be auto-set by pre-save hook
-			// playerNumber will be auto-generated
+		const player = await Player.create({
+			...data,
+			tournament: t._id,
+			originalCategory: data.category,
+			photo,
+			playerNumber: await nextPlayerNumber(t._id),
+			auctionOrder: await nextAuctionOrder(t._id),
 		});
 
-		await player.save();
-
-		req.session.success = `Player "${name}" added successfully with number #${player.playerNumber}`;
-		return res.redirect('/admin/players/add');
+		req.session.success = `${player.name} added as #${player.playerNumber}`;
+		// Keep the category selected: players are usually entered category by category.
+		return res.redirect(`/admin/players/add?category=${data.category}`);
 	} catch (error) {
-		console.error('Error adding player:', error);
-		req.session.error = 'Failed to add player. Please try again.';
-		return res.redirect('/admin/players/add');
+		next(error);
 	}
 };
 
-// 4. Show bulk add form
+// ───────────────────────── Bulk add ─────────────────────────
+
 export const showBulkAddForm = (req, res) => {
-	const success = req.session.success;
-	const error = req.session.error;
-
-	delete req.session.success;
-	delete req.session.error;
-
-	res.render('admin/bulk-add', {
-		success,
-		error,
-		title: 'Bulk Add Players',
-	});
+	res.render('admin/bulk-add', { title: 'Bulk Add Players', ...formOptions(req.tournament) });
 };
 
-// 5. Bulk add players
+/** POST /admin/players/bulk — JSON rows; each valid row is added, the rest are reported. */
 export const bulkAddPlayers = async (req, res) => {
 	try {
-		const { players } = req.body;
+		const t = req.tournament;
+		const rows = Array.isArray(req.body.players) ? req.body.players.slice(0, 200) : [];
+		if (rows.length === 0) return res.json({ success: false, message: 'No player data provided' });
 
-		if (!players || !Array.isArray(players) || players.length === 0) {
-			return res.json({
-				success: false,
-				message: 'No player data provided',
-			});
-		}
-
-		const validPlayers = [];
-		const failedPlayers = [];
-		const phoneNumbers = new Set();
-
-		// Validate each player
-		for (let i = 0; i < players.length; i++) {
-			const playerData = players[i];
-			const rowNum = i + 1;
-
-			// Validate data
-			const validation = validatePlayerData(playerData);
-
-			if (!validation.isValid) {
-				failedPlayers.push({
-					row: rowNum,
-					name: playerData.name || 'N/A',
-					reason: validation.errors.join(', '),
-				});
+		const valid = [];
+		const failed = [];
+		const phones = new Set();
+		for (const [index, row] of rows.entries()) {
+			const { data, errors } = parsePlayerInput(row, t);
+			if (data.phone && phones.has(data.phone)) errors.push('Phone number repeated in this batch');
+			const duplicate = !errors.length && (await phoneTaken(t, data.phone));
+			if (duplicate) errors.push(`Phone number already registered to ${duplicate.name}`);
+			if (errors.length) {
+				failed.push({ row: row.row ?? index + 1, name: data.name || '—', reason: errors.join(', ') });
 				continue;
 			}
-
-			// Check for duplicate phone in batch
-			if (phoneNumbers.has(playerData.phoneNumber)) {
-				failedPlayers.push({
-					row: rowNum,
-					name: playerData.name,
-					reason: 'Duplicate phone number in batch',
-				});
-				continue;
-			}
-
-			// Check for duplicate phone in database
-			const existing = await Player.findOne({
-				phoneNumber: playerData.phoneNumber,
-			});
-
-			if (existing) {
-				failedPlayers.push({
-					row: rowNum,
-					name: playerData.name,
-					reason: `Phone number already exists for ${existing.name}`,
-				});
-				continue;
-			}
-
-			phoneNumbers.add(playerData.phoneNumber);
-			validPlayers.push({
-				name: playerData.name.trim(),
-				phoneNumber: playerData.phoneNumber.trim(),
-				jerseySize: playerData.jerseySize,
-				playerType: playerData.playerType,
-				category: playerData.category,
-			});
+			if (data.phone) phones.add(data.phone);
+			valid.push(data);
 		}
 
-		// Bulk insert valid players
-		let addedCount = 0;
-		if (validPlayers.length > 0) {
-			const result = await Player.insertMany(validPlayers, { ordered: false });
-			addedCount = result.length;
-		}
+		let number = await nextPlayerNumber(t._id);
+		let order = await nextAuctionOrder(t._id);
+		const docs = valid.map((data) => ({
+			...data,
+			tournament: t._id,
+			originalCategory: data.category,
+			playerNumber: number++,
+			auctionOrder: order++,
+		}));
+		if (docs.length) await Player.insertMany(docs);
 
 		return res.json({
 			success: true,
-			added: addedCount,
-			failed: failedPlayers,
+			added: docs.length,
+			failed,
 			message:
-				failedPlayers.length > 0
-					? `Added ${addedCount} players. ${failedPlayers.length} failed.`
-					: `Successfully added ${addedCount} players!`,
+				`Added ${docs.length} player${docs.length === 1 ? '' : 's'}.` +
+				(failed.length ? ` ${failed.length} row${failed.length === 1 ? ' needs' : 's need'} fixing.` : ''),
 		});
 	} catch (error) {
 		console.error('Error in bulk add:', error);
-		return res.json({
-			success: false,
-			message: 'Server error during bulk add: ' + error.message,
-		});
+		return res.status(500).json({ success: false, message: 'Server error during bulk add: ' + error.message });
 	}
 };
 
-// 6. Show edit player form
-export const showEditPlayerForm = async (req, res) => {
-	try {
-		const playerId = req.params.id;
-		const player = await Player.findById(playerId);
+// ───────────────────────── Edit / delete ─────────────────────────
 
+const findPlayer = (tournament, id) =>
+	mongoose.isValidObjectId(id) ? Player.findOne({ _id: id, tournament: tournament._id, isOwner: false }) : null;
+
+export const showEditPlayerForm = async (req, res, next) => {
+	try {
+		const player = await findPlayer(req.tournament, req.params.id)?.populate('soldTo', 'name');
 		if (!player) {
 			req.session.error = 'Player not found';
 			return res.redirect('/admin/players');
 		}
-
-		const success = req.session.success;
-		const error = req.session.error;
-
-		delete req.session.success;
-		delete req.session.error;
-
 		res.render('admin/edit-player', {
+			title: `Edit ${player.name}`,
 			player,
-			success,
-			error,
-			title: 'Edit Player',
+			values: { ...player.toObject(), category: String(player.category || '') },
+			errors: [],
+			...formOptions(req.tournament),
 		});
 	} catch (error) {
-		console.error('Error loading edit form:', error);
-		req.session.error = 'Failed to load player details';
-		res.redirect('/admin/players');
+		next(error);
 	}
 };
 
-// 7. Edit player
-export const editPlayer = async (req, res) => {
+export const editPlayer = async (req, res, next) => {
+	const t = req.tournament;
 	try {
-		const playerId = req.params.id;
-		const { name, phoneNumber, jerseySize, category, playerType } = req.body;
-
-		// Find player
-		const player = await Player.findById(playerId);
-
+		const player = await findPlayer(t, req.params.id)?.populate('soldTo', 'name');
 		if (!player) {
 			req.session.error = 'Player not found';
 			return res.redirect('/admin/players');
 		}
 
-		// Validate data
-		const validation = validatePlayerData({ name, phoneNumber, category, playerType, jerseySize });
+		const { data, errors } = parsePlayerInput(req.body, t);
+		if (req.uploadError) errors.push(req.uploadError);
+		if (player.status === 'sold' && String(player.category) !== data.category) {
+			errors.push('The category of a sold player cannot change. Undo the sale first.');
+		}
+		const duplicate = await phoneTaken(t, data.phone, player._id);
+		if (duplicate) errors.push(`Phone number ${data.phone} is already registered to ${duplicate.name}`);
 
-		if (!validation.isValid) {
-			req.session.error = validation.errors.join(', ');
-			return res.redirect(`/admin/players/edit/${playerId}`);
+		const photoFile = fileFor(req, 'photo');
+		if (!errors.length && photoFile) {
+			try {
+				const uploaded = await uploadImage(photoFile.buffer, { tournamentId: t._id, kind: 'players' });
+				await deleteImage(player.photo?.publicId);
+				player.photo = uploaded;
+			} catch (uploadError) {
+				errors.push(uploadError.message);
+			}
+		} else if (!errors.length && req.body.removePhoto === 'on' && player.photo?.publicId) {
+			await deleteImage(player.photo.publicId);
+			player.photo = undefined;
 		}
 
-		// Check if player is sold and category is being changed
-		if (player.status === 'sold' && player.category !== category) {
-			req.session.error =
-				'Cannot change category of a sold player. Please withdraw the player first.';
-			return res.redirect(`/admin/players/edit/${playerId}`);
-		}
-
-		// Check for duplicate phone number (excluding current player)
-		if (phoneNumber !== player.phoneNumber) {
-			const existingPlayer = await Player.findOne({
-				phoneNumber,
-				_id: { $ne: playerId },
+		if (errors.length) {
+			return res.status(400).render('admin/edit-player', {
+				title: `Edit ${player.name}`,
+				player,
+				values: { ...data },
+				errors,
+				...formOptions(t),
 			});
-
-			if (existingPlayer) {
-				req.session.error = `Phone number ${phoneNumber} is already registered for player: ${existingPlayer.name}`;
-				return res.redirect(`/admin/players/edit/${playerId}`);
-			}
 		}
 
-		// Update player fields
-		player.name = name.trim();
-		player.phoneNumber = phoneNumber.trim();
-		player.jerseySize = jerseySize;
-		player.playerType = playerType;
-
-		// Update category and recalculate base price if changed
-		if (player.category !== category) {
-			player.category = category;
-			const categoryConfig = getCategoryConfig(category);
-			if (categoryConfig) {
-				player.basePrice = categoryConfig.basePrice;
-			}
-		}
-
+		const categoryChanged = String(player.category) !== data.category;
+		player.set(data);
+		if (categoryChanged) player.originalCategory = data.category;
 		await player.save();
 
-		req.session.success = `Player "${name}" updated successfully`;
+		req.session.success = `${player.name} updated`;
 		return res.redirect('/admin/players');
 	} catch (error) {
-		console.error('Error updating player:', error);
-		req.session.error = 'Failed to update player';
-		return res.redirect(`/admin/players/edit/${req.params.id}`);
+		next(error);
 	}
 };
 
-// 8. Delete player
-export const deletePlayer = async (req, res) => {
+export const deletePlayer = async (req, res, next) => {
 	try {
-		const playerId = req.params.id;
-		const player = await Player.findById(playerId);
-
+		const t = req.tournament;
+		const player = await findPlayer(t, req.params.id);
 		if (!player) {
 			req.session.error = 'Player not found';
 			return res.redirect('/admin/players');
 		}
-
-		// Check if player can be deleted
 		if (player.status === 'sold') {
-			req.session.error = `Cannot delete sold player "${player.name}". Player is owned by a team.`;
+			req.session.error = `${player.name} is in a squad. Undo the sale before deleting.`;
+			return res.redirect('/admin/players');
+		}
+		const state = await getAuctionState(t._id);
+		if (String(state.currentPlayer) === String(player._id)) {
+			req.session.error = `${player.name} is under the hammer right now. Mark them unsold first.`;
 			return res.redirect('/admin/players');
 		}
 
-		// Delete player if status is unsold or withdrawn
-		await Player.findByIdAndDelete(playerId);
-
-		req.session.success = `Player "${player.name}" deleted successfully`;
+		await Player.deleteOne({ _id: player._id });
+		await deleteImage(player.photo?.publicId);
+		req.session.success = `${player.name} deleted`;
 		return res.redirect('/admin/players');
 	} catch (error) {
-		console.error('Error deleting player:', error);
-		req.session.error = 'Failed to delete player';
-		return res.redirect('/admin/players');
+		next(error);
 	}
 };
 
-// 9. Search players (AJAX endpoint)
-export const searchPlayers = async (req, res) => {
+// ───────────────────────── Auction order ─────────────────────────
+
+export const showReorderPage = async (req, res, next) => {
 	try {
-		const term = req.query.term || '';
-
-		const players = await Player.find({
-			name: { $regex: term, $options: 'i' },
-			status: 'unsold',
-		})
-			.limit(20)
-			.select('_id name playerNumber category basePrice');
-
-		res.json(players);
-	} catch (error) {
-		console.error('Error searching players:', error);
-		res.status(500).json({ error: 'Search failed' });
-	}
-};
-
-// 10. Get players by category (AJAX endpoint)
-export const getPlayersByCategory = async (req, res) => {
-	try {
-		const category = req.params.category;
-
-		const players = await Player.find({
-			category,
-			status: 'unsold',
-		})
-			.sort({ playerNumber: 1 })
-			.select('_id name playerNumber category basePrice');
-
-		res.json(players);
-	} catch (error) {
-		console.error('Error fetching players by category:', error);
-		res.status(500).json({ error: 'Failed to fetch players' });
-	}
-};
-
-// 11. Show player reorder page
-export const showReorderPage = async (req, res) => {
-	try {
-		const players = await Player.find({ status: 'unsold' })
+		const players = await Player.find({ tournament: req.tournament._id, isOwner: false, status: { $in: POOL_STATUSES } })
 			.sort({ auctionOrder: 1, playerNumber: 1 })
-			.select('_id name playerNumber category playerType auctionOrder basePrice')
+			.select('name playerNumber category role auctionOrder status')
 			.lean();
-
-		res.render('admin/reorder-players', {
-			players,
-			title: 'Reorder Players',
-		});
+		res.render('admin/reorder-players', { title: 'Auction Order', players });
 	} catch (error) {
-		console.error('Error loading reorder page:', error);
-		res.status(500).send('Error loading reorder page');
+		next(error);
 	}
 };
 
-// 12. Save player auction order (AJAX)
 export const savePlayerOrder = async (req, res) => {
 	try {
 		const { playerIds } = req.body;
-
 		if (!Array.isArray(playerIds) || playerIds.length === 0) {
 			return res.status(400).json({ success: false, message: 'No player IDs provided' });
 		}
-
-		const bulkOps = playerIds.map((id, index) => ({
-			updateOne: {
-				filter: { _id: id },
-				update: { $set: { auctionOrder: index + 1 } },
-			},
-		}));
-
-		await Player.bulkWrite(bulkOps);
-
-		return res.json({ success: true, message: 'Order saved successfully' });
+		const ids = playerIds.filter((id) => mongoose.isValidObjectId(id));
+		await Player.bulkWrite(
+			ids.map((id, index) => ({
+				updateOne: { filter: { _id: id, tournament: req.tournament._id }, update: { $set: { auctionOrder: index + 1 } } },
+			}))
+		);
+		return res.json({ success: true, message: 'Order saved' });
 	} catch (error) {
 		console.error('Error saving player order:', error);
 		return res.status(500).json({ success: false, message: 'Failed to save order' });
 	}
 };
 
-export default {
-	getAllPlayers,
-	showAddPlayerForm,
-	addPlayer,
-	showBulkAddForm,
-	bulkAddPlayers,
-	showEditPlayerForm,
-	editPlayer,
-	deletePlayer,
-	searchPlayers,
-	getPlayersByCategory,
-	showReorderPage,
-	savePlayerOrder,
+/**
+ * POST /admin/players/reorder/auto — arrange the whole queue in one click:
+ * by category (most expensive first), randomly within each category, or by
+ * registration number.
+ */
+export const autoArrangeOrder = async (req, res, next) => {
+	try {
+		const t = req.tournament;
+		const mode = req.body.mode;
+		const players = await Player.find({ tournament: t._id, isOwner: false, status: { $in: POOL_STATUSES } })
+			.select('category playerNumber')
+			.lean();
+
+		const priceRank = new Map(
+			[...t.categories].sort((a, b) => b.basePrice - a.basePrice).map((c, i) => [String(c._id), i])
+		);
+		const shuffled = players.map((p) => ({ ...p, r: Math.random() }));
+		const byCategory = (a, b) => (priceRank.get(String(a.category)) ?? 99) - (priceRank.get(String(b.category)) ?? 99);
+
+		if (mode === 'category') shuffled.sort((a, b) => byCategory(a, b) || a.playerNumber - b.playerNumber);
+		else if (mode === 'category-random') shuffled.sort((a, b) => byCategory(a, b) || a.r - b.r);
+		else if (mode === 'random') shuffled.sort((a, b) => a.r - b.r);
+		else shuffled.sort((a, b) => a.playerNumber - b.playerNumber);
+
+		if (shuffled.length) {
+			await Player.bulkWrite(
+				shuffled.map((p, i) => ({ updateOne: { filter: { _id: p._id }, update: { $set: { auctionOrder: i + 1 } } } }))
+			);
+		}
+		req.session.success = 'Auction order updated';
+		return res.redirect('/admin/players/reorder');
+	} catch (error) {
+		next(error);
+	}
 };

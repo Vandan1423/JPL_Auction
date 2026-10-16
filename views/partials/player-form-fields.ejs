@@ -1,0 +1,91 @@
+<%#
+    Player form fields shared by add and edit. Uses the tournament's roles,
+    categories and field settings. Params: values, lockCategory?, existingPhoto?
+%>
+<% const mode = (key) => (fields && fields[key]) || 'optional'; %>
+<% const star = (key) => mode(key) === 'required' ? '<span class="required">*</span>' : ''; %>
+
+<div class="player-form-grid">
+    <div class="player-photo-col">
+        <%- include('image-field', {
+            name: 'photo',
+            label: 'Photo',
+            image: locals.existingPhoto,
+            preset: 'avatar',
+            removeName: 'removePhoto',
+            round: true,
+            icon: 'fa-user',
+            hint: 'Optional · a clear face shot works best',
+        }) %>
+    </div>
+
+    <div class="player-fields-col">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="name">Player name <span class="required">*</span></label>
+                <input type="text" id="name" name="name" class="form-control" value="<%= values.name || '' %>" required maxlength="80" autofocus placeholder="Full name">
+            </div>
+            <div class="form-group">
+                <label for="role">Role <span class="required">*</span></label>
+                <select id="role" name="role" class="form-control" required>
+                    <option value="">Select role</option>
+                    <% roles.forEach(r => { %>
+                        <option value="<%= r %>" <%= values.role === r ? 'selected' : '' %>><%= r %></option>
+                    <% }) %>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Category <span class="required">*</span></label>
+            <div class="category-picker" role="radiogroup">
+                <% categories.forEach(c => { %>
+                    <label class="category-option" style="--cat: <%= c.color %>">
+                        <input type="radio" name="category" value="<%= c._id %>" <%= String(values.category) === String(c._id) ? 'checked' : '' %> <%= locals.lockCategory ? 'disabled' : '' %> required>
+                        <span class="category-option-name"><%= c.name %></span>
+                        <span class="category-option-price"><%= money(c.basePrice) %></span>
+                    </label>
+                <% }) %>
+            </div>
+            <% if (locals.lockCategory) { %>
+                <input type="hidden" name="category" value="<%= values.category %>">
+                <small class="form-text warning">Category is locked for a sold player.</small>
+            <% } %>
+        </div>
+
+        <div class="form-row">
+            <% if (mode('phone') !== 'hidden') { %>
+                <div class="form-group">
+                    <label for="phone">Phone number <%- star('phone') %></label>
+                    <input type="tel" id="phone" name="phone" class="form-control" value="<%= values.phone || '' %>" inputmode="tel" maxlength="16" placeholder="Mobile number" <%= mode('phone') === 'required' ? 'required' : '' %>>
+                </div>
+            <% } %>
+            <% if (mode('jerseySize') !== 'hidden') { %>
+                <div class="form-group">
+                    <label for="jerseySize">Jersey size <%- star('jerseySize') %></label>
+                    <select id="jerseySize" name="jerseySize" class="form-control" <%= mode('jerseySize') === 'required' ? 'required' : '' %>>
+                        <option value="">Select size</option>
+                        <% jerseySizes.forEach(s => { %>
+                            <option value="<%= s %>" <%= values.jerseySize === s ? 'selected' : '' %>><%= s %></option>
+                        <% }) %>
+                    </select>
+                </div>
+            <% } %>
+        </div>
+
+        <div class="form-row">
+            <% if (mode('jerseyNumber') !== 'hidden') { %>
+                <div class="form-group">
+                    <label for="jerseyNumber">Jersey number <%- star('jerseyNumber') %></label>
+                    <input type="text" id="jerseyNumber" name="jerseyNumber" class="form-control" value="<%= values.jerseyNumber || '' %>" inputmode="numeric" maxlength="3" placeholder="e.g. 18" <%= mode('jerseyNumber') === 'required' ? 'required' : '' %>>
+                </div>
+            <% } %>
+            <% if (mode('age') !== 'hidden') { %>
+                <div class="form-group">
+                    <label for="age">Age <%- star('age') %></label>
+                    <input type="number" id="age" name="age" class="form-control" value="<%= values.age ?? '' %>" min="5" max="90" placeholder="Years" <%= mode('age') === 'required' ? 'required' : '' %>>
+                </div>
+            <% } %>
+        </div>
+    </div>
+</div>

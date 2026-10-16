@@ -12,28 +12,28 @@ const bidEntrySchema = new Schema(
 	{ _id: false }
 );
 
+// One live auction state per tournament. `optimisticConcurrency` makes save()
+// fail if another request changed the document first, so two near-simultaneous
+// bids can never both be accepted.
 const auctionStateSchema = new Schema(
 	{
+		tournament: { type: Schema.Types.ObjectId, ref: 'Tournament', required: true, unique: true },
 		currentPlayer: { type: Schema.Types.ObjectId, ref: 'Player', default: null },
 		currentBid: { type: Number, default: 0 },
 		currentBidder: { type: Schema.Types.ObjectId, ref: 'Team', default: null },
 		isActive: { type: Boolean, default: false },
 		roundNumber: { type: Number, default: 0 },
 		lastBidTime: { type: Date },
-		auctionStartedAt: { type: Date },
 		bidHistory: [bidEntrySchema],
 	},
-	{ timestamps: true }
+	{ timestamps: true, optimisticConcurrency: true }
 );
 
-auctionStateSchema.methods.clearState = function clearState() {
+auctionStateSchema.methods.clearCurrent = function clearCurrent() {
 	this.currentPlayer = null;
 	this.currentBid = 0;
 	this.currentBidder = null;
 	this.isActive = false;
-	this.roundNumber = 0;
-	this.lastBidTime = undefined;
-	this.auctionStartedAt = undefined;
 	this.bidHistory = [];
 	return this;
 };

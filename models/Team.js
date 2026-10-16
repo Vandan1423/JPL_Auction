@@ -1,46 +1,31 @@
 import mongoose from 'mongoose';
+import { imageSchema } from './Tournament.js';
 
 const { Schema, model } = mongoose;
 
-const teamPlayerSchema = new Schema(
-	{
-		playerId: { type: Schema.Types.ObjectId, ref: 'Player' },
-		playerName: String,
-		pricePaid: Number,
-		category: String,
-		boughtAt: { type: Date, default: Date.now },
-	},
-	{ _id: false }
-);
-
+// Squad, spend and remaining purse are derived from sold Player documents
+// (see services/standings.js), so a team never stores a copy that can drift.
 const teamSchema = new Schema(
 	{
-		teamName: { type: String, required: true, unique: true, trim: true },
-		teamNumber: {
-			type: Number,
-			required: true,
-			unique: true,
-			min: 1,
-			max: 8,
+		tournament: { type: Schema.Types.ObjectId, ref: 'Tournament', required: true, index: true },
+		// Display order, also used for the 1–9 keyboard shortcuts in the auction panel.
+		order: { type: Number, required: true },
+		name: { type: String, required: true, trim: true, maxlength: 60 },
+		shortName: { type: String, trim: true, maxlength: 6, default: '' },
+		color: { type: String, default: '#3B82F6' },
+		logo: { type: imageSchema, default: undefined },
+		owner: {
+			name: { type: String, trim: true, maxlength: 80, default: '' },
+			photo: { type: imageSchema, default: undefined },
+			// A playing owner is added to the squad automatically and fills one slot.
+			isPlaying: { type: Boolean, default: false },
+			role: { type: String, trim: true, default: '' },
 		},
-		captain: { type: String, default: '' },
-		color: { type: String, required: true },
-		logo: { type: String, default: '' },
-		remainingPurse: { type: Number, required: true, default: 1000000 },
-		initialPurse: { type: Number, required: true, default: 1000000 },
-		playersCount: { type: Number, default: 0 },
-		players: [teamPlayerSchema],
-		createdAt: { type: Date, default: Date.now },
 	},
-	{
-		toJSON: { virtuals: true },
-		toObject: { virtuals: true },
-	}
+	{ timestamps: true }
 );
 
-teamSchema.virtual('totalSpent').get(function totalSpent() {
-	return this.initialPurse - this.remainingPurse;
-});
+teamSchema.index({ tournament: 1, order: 1 });
 
 const Team = model('Team', teamSchema);
 

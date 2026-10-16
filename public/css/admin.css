@@ -644,23 +644,8 @@ select.form-control {
   letter-spacing: 0.5px;
 }
 
-.badge-A {
-  background: linear-gradient(135deg, #fde68a, #f59e0b);
-  color: #78350f;
-  box-shadow: 0 2px 6px rgba(245,158,11,0.3);
-}
 
-.badge-B {
-  background: linear-gradient(135deg, #cbd5e1, #94a3b8);
-  color: #1e293b;
-  box-shadow: 0 2px 6px rgba(148,163,184,0.3);
-}
 
-.badge-C {
-  background: linear-gradient(135deg, #fed7aa, #ea580c);
-  color: #fff;
-  box-shadow: 0 2px 6px rgba(234,88,12,0.3);
-}
 
 .status-badge {
   display: inline-flex;
@@ -1766,9 +1751,6 @@ select.form-control {
   color: white;
 }
 
-.cat-badge.cat-A { background: linear-gradient(135deg, #f59e0b, #d97706); }
-.cat-badge.cat-B { background: linear-gradient(135deg, #64748b, #475569); }
-.cat-badge.cat-C { background: linear-gradient(135deg, #ea580c, #c2410c); }
 
 /* Team Actions */
 .team-actions {
@@ -1986,9 +1968,6 @@ select.form-control {
   box-shadow: var(--shadow-md);
 }
 
-.comp-card.comp-A { background: rgba(254,226,226,0.5); border-color: #DC2626; }
-.comp-card.comp-B { background: rgba(219,234,254,0.5); border-color: #2563EB; }
-.comp-card.comp-C { background: rgba(220,252,231,0.5); border-color: #16A34A; }
 .comp-card.comp-D { background: rgba(255,237,213,0.5); border-color: #EA580C; }
 
 .comp-card h3 {
@@ -2798,9 +2777,6 @@ select.form-control {
   box-shadow: var(--shadow-xl);
 }
 
-.category-card.cat-A { background: linear-gradient(135deg, #f59e0b, #d97706); }
-.category-card.cat-B { background: linear-gradient(135deg, #64748b, #475569); }
-.category-card.cat-C { background: linear-gradient(135deg, #ea580c, #c2410c); }
 
 .category-card h3 {
   margin-bottom: 0.75rem;

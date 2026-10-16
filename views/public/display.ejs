@@ -3,137 +3,40 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Auction Hub - Live Display</title>
+        <title><%= tournament.name %> · Live Auction</title>
         <link rel="stylesheet" href="/css/display.css" />
         <script src="/socket.io/socket.io.js"></script>
     </head>
     <body>
         <div class="display-container">
-            <!-- Glassmorphic Header -->
             <header class="display-header">
                 <div class="header-content">
                     <div class="tournament-branding">
-                        <img
-                            src="/images/logo.svg"
-                            alt="Auction Hub logo"
-                            class="tournament-logo"
-                            onerror="this.style.display='none'"
-                        />
-                        <h1 class="tournament-title">AUCTION HUB</h1>
+                        <img src="<%= logoUrl || '/images/logo.svg' %>" alt="" class="tournament-logo" onerror="this.style.display='none'" />
+                        <div class="tournament-title-wrap">
+                            <h1 class="tournament-title"><%= tournament.name.toUpperCase() %></h1>
+                            <% if (tournament.season) { %><span class="tournament-season"><%= tournament.season %> · Player Auction</span><% } %>
+                        </div>
                     </div>
                     <div class="header-stats">
-                        <span class="header-stat">
-                            Round:
-                            <strong id="displayRound"><%= auctionState.roundNumber || 0 %></strong>
-                        </span>
-                        <span class="header-stat">
-                            Sold:
-                            <strong id="displaySold"><%= soldCount %></strong>/<%= totalPlayers %>
-                        </span>
-                        <span class="header-stat connection-status" id="connectionStatus">
-                            🟢 Live
-                        </span>
-                        <span class="header-stat">
-                            <strong id="liveClock"></strong>
-                        </span>
+                        <span class="header-stat">Round: <strong id="displayRound">0</strong></span>
+                        <span class="header-stat">Sold: <strong id="displaySold">0</strong>/<span id="displayTotal">0</span></span>
+                        <span class="header-stat connection-status" id="connectionStatus">🟢 Live</span>
+                        <span class="header-stat"><strong id="liveClock"></strong></span>
                     </div>
                 </div>
             </header>
-            <!-- Main Display Area -->
+
             <main class="display-main">
-                <!-- Current Player Section -->
-                <section class="current-player-section" id="currentPlayerSection">
-                    <% if (currentPlayer) { %>
-                    <div class="player-display">
-                        <% if (currentPlayer.imageUrl) { %>
-                        <div class="player-image-container">
-                            <img
-                                src="<%= currentPlayer.imageUrl %>"
-                                alt="<%= currentPlayer.name %>"
-                                class="player-image"
-                                onerror="this.style.display='none'"
-                            />
-                        </div>
-                        <% } %>
-                        <div class="player-display-left">
-                            <h2 class="player-display-name"><%= currentPlayer.name %></h2>
-                            <div class="player-display-base">
-                                Base Price: ₹<%= currentPlayer.basePrice.toLocaleString('en-IN') %>
-                            </div>
-                        </div>
-
-                        <div class="player-display-right">
-                            <div class="current-bid-section">
-                                <div class="bid-header">CURRENT BID</div>
-                                <div class="bid-display-amount" id="displayBidAmount">
-                                    ₹<%= (auctionState.currentBid || currentPlayer.basePrice).toLocaleString('en-IN') %>
-                                </div>
-                                <div class="bid-display-team" id="displayBiddingTeam" <% if (currentBidder) { %>style="color: <%= currentBidder.color %>"<% } %>>
-                                    <% if (currentBidder) { %>
-                                        <% if (currentBidder.logo) { %>
-                                        <img
-                                            src="<%= currentBidder.logo %>"
-                                            alt="<%= currentBidder.teamName %>"
-                                            style="width: 45px; height: 45px; object-fit: contain; filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3)); margin-right: 10px;"
-                                        />
-                                        <% } %>
-                                        <%= currentBidder.teamName %>
-                                    <% } else { %>
-                                        Waiting for bids...
-                                    <% } %>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <% } else { %>
-                    <div class="no-auction">
-                        <div class="no-auction-content">
-                            <h2>BIDDING STARTING SOON</h2>
-                            <p>Please wait for the auction to begin</p>
-                        </div>
-                    </div>
-                    <% } %>
-                </section>
-
-                <!-- Teams Grid Section -->
+                <section class="current-player-section" id="currentPlayerSection"></section>
                 <section class="teams-display-section">
-                    <div class="teams-grid" id="teamsDisplayGrid">
-                        <% teams.forEach(team => { %>
-                        <div class="team-card" data-team-id="<%= team._id %>" style="--tc: <%= team.color %>">
-                            <div class="team-card__accent"></div>
-                            <div class="team-card__header">
-                                <% if (team.logo) { %>
-                                <img src="<%= team.logo %>" alt="<%= team.teamName %>" class="team-card__logo" />
-                                <% } %>
-                                <h3 class="team-card__name"><%= team.teamName %></h3>
-                            </div>
-                            <div class="team-card__stats">
-                                <div class="team-card__stat">
-                                    <span class="team-card__stat-val players-count"><%= team.playersCount %>/9</span>
-                                    <span class="team-card__stat-lbl">Players</span>
-                                </div>
-                                <div class="team-card__stat">
-                                    <span class="team-card__stat-val purse-value">₹<%= team.remainingPurse.toLocaleString('en-IN') %></span>
-                                    <span class="team-card__stat-lbl">Purse Left</span>
-                                </div>
-                            </div>
-                            <div class="team-card__progress">
-                                <div class="team-card__progress-bar">
-                                    <div class="team-card__progress-fill" style="width: <%= (team.playersCount / 9) * 100 %>%"></div>
-                                </div>
-                                <div class="team-card__progress-text"><%= team.playersCount %>/9 Players</div>
-                            </div>
-                        </div>
-                        <% }) %>
-                    </div>
+                    <div class="teams-grid" id="teamsDisplayGrid"></div>
                 </section>
             </main>
         </div>
 
-        <!-- Crackers / Confetti Canvas -->
         <canvas id="crackersCanvas"></canvas>
 
-        <!-- SOLD Overlay -->
         <div id="soldOverlay" class="result-overlay result-overlay--sold" style="display: none">
             <div class="result-overlay__backdrop"></div>
             <div class="result-overlay__content">
@@ -141,7 +44,7 @@
                 <div class="result-overlay__player-photo-wrap" id="soldPlayerPhoto"></div>
                 <div class="result-overlay__player" id="soldPlayerName"></div>
                 <div class="result-overlay__divider"></div>
-                <div class="result-overlay__team-row" id="soldTeamRow">
+                <div class="result-overlay__team-row">
                     <img class="result-overlay__team-logo" id="soldTeamLogo" src="" alt="" />
                     <span class="result-overlay__team-name" id="soldTeamName"></span>
                 </div>
@@ -149,7 +52,6 @@
             </div>
         </div>
 
-        <!-- UNSOLD Overlay -->
         <div id="unsoldOverlay" class="result-overlay result-overlay--unsold" style="display: none">
             <div class="result-overlay__backdrop"></div>
             <div class="result-overlay__content">
@@ -160,6 +62,14 @@
             </div>
         </div>
 
+        <script>
+            window.DISPLAY_CONFIG = <%- json({
+                tournamentId: String(tournament._id),
+                slug: tournament.slug,
+                currency: { symbol: currency.symbol, suffix: currency.suffix || '', locale: currency.locale },
+                snapshot,
+            }) %>;
+        </script>
         <script src="/js/display.js"></script>
     </body>
 </html>

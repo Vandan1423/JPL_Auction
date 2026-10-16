@@ -1,0 +1,50 @@
+<h2 class="setup-card-title"><i class="fa-solid fa-trophy"></i> Tournament details</h2>
+<p class="setup-help">This appears on the admin panel, the live display screen and exported squad sheets.</p>
+
+<div class="form-row">
+    <div class="form-group">
+        <label for="name">Tournament name <span class="required">*</span></label>
+        <input type="text" id="name" name="name" class="form-control" value="<%= d.name %>" maxlength="80" required autofocus placeholder="e.g. Sunrise Premier League">
+    </div>
+    <div class="form-group">
+        <label for="shortName">Short name</label>
+        <input type="text" id="shortName" name="shortName" class="form-control" value="<%= d.shortName %>" maxlength="12" placeholder="e.g. SPL">
+        <small class="form-text">Used where space is tight and in export file names.</small>
+    </div>
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label for="season">Season / edition</label>
+        <input type="text" id="season" name="season" class="form-control" value="<%= d.season %>" maxlength="20" placeholder="e.g. 2026 or Season 3">
+    </div>
+    <div class="form-group">
+        <label for="currency">Money shown as</label>
+        <select id="currency" name="currency" class="form-control">
+            <% Object.entries(currencies).forEach(([code, c]) => { %>
+                <option value="<%= code %>" <%= d.currency === code ? 'selected' : '' %>><%= c.label %></option>
+            <% }) %>
+        </select>
+        <small class="form-text">Pick "Points" if teams bid with points instead of money.</small>
+    </div>
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label for="venue">Auction venue</label>
+        <input type="text" id="venue" name="venue" class="form-control" value="<%= d.venue %>" maxlength="120" placeholder="Optional">
+    </div>
+    <div class="form-group">
+        <label for="auctionDate">Auction date</label>
+        <input type="date" id="auctionDate" name="auctionDate" class="form-control" value="<%= d.auctionDate %>">
+    </div>
+</div>
+
+<%- include('../../partials/image-field', {
+    name: 'logo',
+    label: 'Tournament logo',
+    image: d.logo,
+    preset: 'logo',
+    removeName: 'removeLogo',
+    icon: 'fa-trophy',
+}) %>

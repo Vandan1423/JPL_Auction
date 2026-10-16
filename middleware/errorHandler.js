@@ -1,4 +1,6 @@
-// Global error handler middleware
+// Global error and 404 handlers.
+
+const wantsJson = (req) => req.xhr || req.headers.accept?.includes('application/json') || req.originalUrl.includes('/api/');
 
 /**
  * Global error handler
@@ -8,119 +10,62 @@
  * @param {Function} next - Next middleware
  */
 function errorHandler(err, req, res, next) {
-    console.error('Error:', err);
-    
-    // Log to file in production
-    if (process.env.NODE_ENV === 'production') {
-        logError(err);
-    }
-    
-    // Mongoose validation error
-    if (err.name === 'ValidationError') {
-        return res.status(400).json({
-            success: false,
-            message: 'Validation Error',
-            errors: Object.values(err.errors).map(e => e.message)
-        });
-    }
-    
-    // Mongoose duplicate key error
-    if (err.code === 11000) {
-        const field = Object.keys(err.keyPattern)[0];
-        return res.status(400).json({
-            success: false,
-            message: `Duplicate ${field} - This value already exists`
-        });
-    }
-    
-    // JWT errors
-    if (err.name === 'JsonWebTokenError') {
-        return res.status(401).json({
-            success: false,
-            message: 'Invalid token'
-        });
-    }
-    
-    // Token expired error
-    if (err.name === 'TokenExpiredError') {
-        return res.status(401).json({
-            success: false,
-            message: 'Token expired'
-        });
-    }
-    
-    // Cast error (invalid ObjectId)
-    if (err.name === 'CastError') {
-        return res.status(400).json({
-            success: false,
-            message: 'Invalid ID format'
-        });
-    }
-    
-    // Check if it's an API request
-    if (req.xhr || req.headers.accept?.includes('application/json')) {
-        return res.status(err.status || 500).json({
-            success: false,
-            message: err.message || 'Internal Server Error'
-        });
-    }
-    
-    // Default error page
-    res.status(err.status || 500).render('error', {
-        title: `Error ${err.status || 500}`,
-        message: err.message || 'Internal Server Error',
-        showNav: false
-    });
+	if (res.headersSent) return next(err);
+
+	let status = err.status || 500;
+	let message = err.message || 'Internal Server Error';
+
+	if (err.name === 'ValidationError') {
+		status = 400;
+		message = Object.values(err.errors).map((e) => e.message).join(', ');
+	} else if (err.code === 11000) {
+		status = 400;
+		message = `Duplicate ${Object.keys(err.keyPattern || {})[0] || 'value'}: this value already exists`;
+	} else if (err.name === 'CastError') {
+		status = 400;
+		message = 'Invalid ID format';
+	}
+
+	// Expected failures (e.g. an invalid bid) are not crashes; don't log stack traces for them.
+	if (!err.expected && status >= 500) console.error('Error:', err);
+
+	if (wantsJson(req)) {
+		return res.status(status).json({ success: false, message });
+	}
+
+	res.status(status).render('error', {
+		title: `Error ${status}`,
+		message,
+		showNav: false,
+	});
 }
 
 /**
  * 404 handler - must be placed after all routes
  * @param {Request} req - Express request
  * @param {Response} res - Express response
- * @param {Function} next - Next middleware
  */
-function notFoundHandler(req, res, next) {
-    // Check if it's an API request
-    if (req.xhr || req.headers.accept?.includes('application/json')) {
-        return res.status(404).json({
-            success: false,
-            message: 'Resource not found'
-        });
-    }
-    
-    res.status(404).render('error', {
-        title: '404 - Not Found',
-        message: 'The page you are looking for does not exist',
-        showNav: false
-    });
+function notFoundHandler(req, res) {
+	if (wantsJson(req)) {
+		return res.status(404).json({ success: false, message: 'Resource not found' });
+	}
+
+	res.status(404).render('error', {
+		title: '404 - Not Found',
+		message: 'The page you are looking for does not exist',
+		showNav: false,
+	});
 }
 
 /**
- * Async error wrapper - wraps async functions to catch errors
- * @param {Function} fn - Async function to wrap
- * @returns {Function} - Wrapped function
+ * Async error wrapper - forwards rejected promises to the error handler
+ * @param {Function} fn - Async route handler
+ * @returns {Function} - Wrapped handler
  */
 function asyncHandler(fn) {
-    return (req, res, next) => {
-        Promise.resolve(fn(req, res, next)).catch(next);
-    };
+	return (req, res, next) => {
+		Promise.resolve(fn(req, res, next)).catch(next);
+	};
 }
 
-/**
- * Log error to console/file
- * @param {Error} err - Error to log
- */
-function logError(err) {
-    // In production, you might want to use a logging service
-    console.error('Production Error:', {
-        message: err.message,
-        stack: err.stack,
-        timestamp: new Date().toISOString()
-    });
-}
-
-export {
-    errorHandler,
-    notFoundHandler,
-    asyncHandler
-};
+export { errorHandler, notFoundHandler, asyncHandler };

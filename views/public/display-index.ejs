@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Live Auctions · <%= appName %></title>
+        <link rel="stylesheet" href="/css/display.css" />
+    </head>
+    <body>
+        <div class="display-container display-index">
+            <header class="display-header">
+                <div class="header-content">
+                    <div class="tournament-branding">
+                        <img src="/images/logo.svg" alt="" class="tournament-logo" />
+                        <h1 class="tournament-title"><%= appName.toUpperCase() %></h1>
+                    </div>
+                </div>
+            </header>
+            <main class="display-index-main">
+                <% if (tournaments.length) { %>
+                    <h2>Choose a live auction</h2>
+                    <div class="display-index-grid">
+                        <% tournaments.forEach(t => { %>
+                            <a class="display-index-card" href="/display/<%= t.slug %>">
+                                <img src="<%= t.logoUrl || '/images/logo.svg' %>" alt="" />
+                                <strong><%= t.name %></strong>
+                                <span><%= t.season %></span>
+                            </a>
+                        <% }) %>
+                    </div>
+                <% } else { %>
+                    <h2>No auction is running right now</h2>
+                    <p>Check back when the auction starts.</p>
+                <% } %>
+            </main>
+        </div>
+    </body>
+</html>

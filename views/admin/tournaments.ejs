@@ -1,0 +1,114 @@
+<%- include('../partials/header', { title: 'Tournaments', showNav: true, activePage: 'tournaments' }) %>
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fa-solid fa-trophy"></i> Tournaments</h1>
+            <p class="page-subtitle">Create a tournament, or pick the one you want to work on.</p>
+        </div>
+        <a href="/admin/tournaments/new" class="btn btn-primary"><i class="fa-solid fa-plus"></i> New tournament</a>
+    </div>
+
+    <% if (!tournaments.length) { %>
+        <div class="empty-state glass-card-static">
+            <img src="/images/logo.svg" alt="" class="empty-state-logo">
+            <h2>Welcome to <%= appName %></h2>
+            <p>Set up your first tournament in six short steps: squad size and purse, categories and base prices, bid increments, teams and their owners.</p>
+            <a class="btn btn-primary btn-lg" href="/admin/tournaments/new"><i class="fa-solid fa-wand-magic-sparkles"></i> Create your first tournament</a>
+        </div>
+    <% } else { %>
+        <div class="tournament-grid">
+            <% tournaments.forEach(t => { %>
+                <% const isCurrent = currentId === String(t._id); %>
+                <article class="tournament-card glass-card-static <%= isCurrent ? 'is-current' : '' %>">
+                    <header class="tournament-card-head">
+                        <% if (t.logo && t.logo.url) { %>
+                            <img src="<%= img(t.logo, 'logoSm') %>" alt="" class="tournament-card-logo">
+                        <% } else { %>
+                            <span class="tournament-card-logo initials"><%= (t.shortName || t.name).slice(0, 3).toUpperCase() %></span>
+                        <% } %>
+                        <div class="tournament-card-title">
+                            <h2><%= t.name %></h2>
+                            <span class="muted"><%= [t.season, t.venue].filter(Boolean).join(' · ') || 'No season set' %></span>
+                        </div>
+                        <% if (t.status === 'setup') { %>
+                            <span class="chip chip-warning">Setup · step <%= t.setupStep %>/6</span>
+                        <% } else if (t.status === 'completed') { %>
+                            <span class="chip chip-muted">Completed</span>
+                        <% } else { %>
+                            <span class="chip chip-success">Active</span>
+                        <% } %>
+                    </header>
+
+                    <dl class="tournament-meta">
+                        <div><dt>Teams</dt><dd><%= t.teamTotal %></dd></div>
+                        <div><dt>Players</dt><dd><%= t.playerTotal %></dd></div>
+                        <div><dt>Sold</dt><dd><%= t.soldTotal %></dd></div>
+                        <div><dt>Purse / team</dt><dd><%= t.purseLabel %></dd></div>
+                    </dl>
+
+                    <div class="tournament-actions">
+                        <form method="POST" action="/admin/tournaments/<%= t._id %>/open">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <% if (t.status === 'setup') { %><i class="fa-solid fa-wand-magic-sparkles"></i> Continue setup<% } else { %><i class="fa-solid fa-arrow-right"></i> <%= isCurrent ? 'Go to dashboard' : 'Open' %><% } %>
+                            </button>
+                        </form>
+                        <% if (t.status !== 'setup') { %>
+                            <a class="btn btn-secondary btn-sm" href="/display/<%= t.slug %>" target="_blank" rel="noopener"><i class="fa-solid fa-tv"></i> Live display</a>
+                            <form method="POST" action="/admin/tournaments/<%= t._id %>/status">
+                                <input type="hidden" name="status" value="<%= t.status === 'completed' ? 'active' : 'completed' %>">
+                                <button type="submit" class="btn btn-ghost btn-sm">
+                                    <% if (t.status === 'completed') { %><i class="fa-solid fa-rotate-left"></i> Reopen<% } else { %><i class="fa-solid fa-flag-checkered"></i> Mark completed<% } %>
+                                </button>
+                            </form>
+                        <% } %>
+                        <button type="button" class="btn btn-ghost btn-sm text-danger" data-delete-tournament="<%= t._id %>" data-name="<%= t.name %>">
+                            <i class="fa-solid fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </article>
+            <% }) %>
+        </div>
+    <% } %>
+</div>
+
+<dialog id="deleteTournamentDialog" class="app-dialog">
+    <form method="POST" id="deleteTournamentForm">
+        <h3><i class="fa-solid fa-triangle-exclamation"></i> Delete tournament</h3>
+        <p>This permanently deletes <strong id="deleteTournamentName"></strong> with all its teams, players, sales and uploaded images. It cannot be undone.</p>
+        <div class="form-group">
+            <label for="confirmName">Type the tournament name to confirm</label>
+            <input type="text" id="confirmName" name="confirmName" class="form-control" autocomplete="off" required>
+        </div>
+        <div class="dialog-actions">
+            <button type="button" class="btn btn-secondary" data-close-dialog>Cancel</button>
+            <button type="submit" class="btn btn-danger" id="confirmDeleteBtn" disabled><i class="fa-solid fa-trash"></i> Delete forever</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+(function () {
+    const dialog = document.getElementById('deleteTournamentDialog');
+    const form = document.getElementById('deleteTournamentForm');
+    const input = document.getElementById('confirmName');
+    const button = document.getElementById('confirmDeleteBtn');
+    let expected = '';
+
+    document.querySelectorAll('[data-delete-tournament]').forEach((trigger) => {
+        trigger.addEventListener('click', () => {
+            expected = trigger.dataset.name;
+            form.action = `/admin/tournaments/${trigger.dataset.deleteTournament}/delete`;
+            document.getElementById('deleteTournamentName').textContent = expected;
+            input.value = '';
+            button.disabled = true;
+            dialog.showModal();
+            input.focus();
+        });
+    });
+    input.addEventListener('input', () => { button.disabled = input.value.trim() !== expected; });
+    dialog.querySelector('[data-close-dialog]').addEventListener('click', () => dialog.close());
+})();
+</script>
+
+<%- include('../partials/footer') %>

@@ -1,12 +1,13 @@
 import express from 'express';
-import { showDisplay, getDisplayData } from '../controllers/displayController.js';
+import { getDisplayData, showDisplay, showDisplayIndex } from '../controllers/displayController.js';
 
 const router = express.Router();
 
-// Public display page
-router.get('/display', showDisplay);
+// Public projector screens
+router.get('/display', showDisplayIndex);
+router.get('/display/:slug', showDisplay);
 
-// API endpoint for display data (polling fallback)
-router.get('/api/display-data', getDisplayData);
+// Polling fallback for the display when the socket connection drops
+router.get('/api/display/:slug', getDisplayData);
 
 export default router;

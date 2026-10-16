@@ -1,184 +1,123 @@
-<%- include('../partials/header', {title: 'Reports & Analytics', showNav: true, activePage: 'reports'}) %>
+<%- include('../partials/header', { title, showNav: true, activePage: 'reports' }) %>
 
 <div class="reports-container">
     <div class="page-header">
-        <h1><i class="fa-solid fa-chart-column"></i> Reports & Analytics</h1>
-        <p>Export data and view detailed statistics</p>
+        <div>
+            <h1><i class="fa-solid fa-chart-column"></i> Reports</h1>
+            <p class="page-subtitle">Downloads are generated on the fly; nothing is stored on the server.</p>
+        </div>
     </div>
 
-    <!-- Statistics Cards -->
     <div class="stats-grid">
         <div class="stat-card stat-primary">
-            <div class="stat-icon-wrapper bg-primary">
-                <i class="fa-solid fa-chart-bar"></i>
-            </div>
-            <div class="stat-content">
-                <h3><%= stats.soldCount %></h3>
-                <p>Players Sold</p>
-            </div>
+            <div class="stat-icon-wrapper bg-primary"><i class="fa-solid fa-chart-bar"></i></div>
+            <div class="stat-content"><h3><%= stats.soldCount %></h3><p>Players sold</p></div>
         </div>
-
         <div class="stat-card stat-warning">
-            <div class="stat-icon-wrapper bg-warning">
-                <i class="fa-solid fa-clock"></i>
-            </div>
-            <div class="stat-content">
-                <h3><%= stats.unsoldCount %></h3>
-                <p>Players Unsold</p>
-            </div>
+            <div class="stat-icon-wrapper bg-warning"><i class="fa-solid fa-hourglass-half"></i></div>
+            <div class="stat-content"><h3><%= stats.poolCount %></h3><p>Still in the pool</p></div>
         </div>
-
         <div class="stat-card stat-success">
-            <div class="stat-icon-wrapper bg-success">
-                <i class="fa-solid fa-indian-rupee-sign"></i>
-            </div>
-            <div class="stat-content">
-                <h3>₹<%= stats.totalValue.toLocaleString('en-IN') %></h3>
-                <p>Total Auction Value</p>
-            </div>
+            <div class="stat-icon-wrapper bg-success"><i class="fa-solid fa-sack-dollar"></i></div>
+            <div class="stat-content"><h3><%= money(stats.totalValue) %></h3><p>Total spent</p></div>
         </div>
-
         <div class="stat-card stat-info">
-            <div class="stat-icon-wrapper bg-info">
-                <i class="fa-solid fa-chart-line"></i>
-            </div>
-            <div class="stat-content">
-                <h3>₹<%= Math.round(stats.avgPrice).toLocaleString('en-IN') %></h3>
-                <p>Average Price</p>
-            </div>
+            <div class="stat-icon-wrapper bg-info"><i class="fa-solid fa-chart-line"></i></div>
+            <div class="stat-content"><h3><%= money(stats.avgPrice) %></h3><p>Average price</p></div>
         </div>
     </div>
 
-    <!-- Export Options -->
     <div class="export-section glass-card">
-        <h2><i class="fa-solid fa-file-export"></i> Export Options</h2>
+        <h2><i class="fa-solid fa-file-export"></i> Downloads</h2>
         <div class="export-buttons">
-            <a href="/admin/reports/export/sold-players" class="btn btn-success">
-                <i class="fa-solid fa-file-excel"></i> Export Sold Players (Excel)
-            </a>
-            <a href="/admin/reports/export/unsold-players" class="btn btn-warning">
-                <i class="fa-solid fa-file-excel"></i> Export Unsold Players (Excel)
-            </a>
-            <a href="/admin/reports/export/team-sheets" class="btn btn-primary">
-                <i class="fa-solid fa-file-excel"></i> Export All Team Sheets (Excel)
-            </a>
+            <a href="/admin/reports/export/sold-players" class="btn btn-success"><i class="fa-solid fa-file-excel"></i> Sold players (Excel)</a>
+            <a href="/admin/reports/export/unsold-players" class="btn btn-warning"><i class="fa-solid fa-file-excel"></i> Players not sold (Excel)</a>
+            <a href="/admin/reports/export/team-sheets" class="btn btn-primary"><i class="fa-solid fa-file-excel"></i> All team sheets (Excel)</a>
         </div>
     </div>
 
-    <!-- Category Breakdown -->
     <div class="category-analysis glass-card">
-        <h2><i class="fa-solid fa-layer-group"></i> Category-wise Analysis</h2>
+        <h2><i class="fa-solid fa-layer-group"></i> By category</h2>
         <div class="category-grid">
-            <% ['A', 'B', 'C'].forEach(cat => { %>
-                <div class="category-card cat-<%= cat %>">
-                    <h3>Category <%= cat %></h3>
+            <% categoryBreakdown.forEach(row => { %>
+                <div class="category-card" style="background: linear-gradient(135deg, <%= row.category.color %>, color-mix(in srgb, <%= row.category.color %> 70%, black))">
+                    <h3><%= row.category.name %></h3>
                     <div class="category-stats">
-                        <div class="stat-row">
-                            <span>Players Sold:</span>
-                            <strong><%= stats.categoryBreakdown[cat].sold %></strong>
-                        </div>
-                        <div class="stat-row">
-                            <span>Total Value:</span>
-                            <strong>₹<%= Math.round(stats.categoryBreakdown[cat].total).toLocaleString('en-IN') %></strong>
-                        </div>
-                        <div class="stat-row">
-                            <span>Average Price:</span>
-                            <strong>₹<%= Math.round(stats.categoryBreakdown[cat].avg).toLocaleString('en-IN') %></strong>
-                        </div>
+                        <div class="stat-row"><span>Base price:</span><strong><%= money(row.category.basePrice) %></strong></div>
+                        <div class="stat-row"><span>Sold:</span><strong><%= row.sold %></strong></div>
+                        <div class="stat-row"><span>Total:</span><strong><%= money(row.total) %></strong></div>
+                        <div class="stat-row"><span>Average:</span><strong><%= money(row.avg) %></strong></div>
+                        <div class="stat-row"><span>Highest:</span><strong><%= money(row.highest) %></strong></div>
                     </div>
                 </div>
             <% }) %>
         </div>
     </div>
 
-    <!-- Highest Sale -->
     <% if (stats.highestSale) { %>
         <div class="highlight-section glass-card">
-            <h2><i class="fa-solid fa-trophy"></i> Highest Sale</h2>
+            <h2><i class="fa-solid fa-trophy"></i> Highest sale</h2>
             <div class="highlight-card">
                 <h3><%= stats.highestSale.name %></h3>
                 <p class="highlight-detail">
-                    <span class="badge badge-<%= stats.highestSale.category %>">
-                        <%= stats.highestSale.category %>
-                    </span>
-                    sold to 
-                    <strong><%= stats.highestSale.soldTo.teamName %></strong>
-                    for 
-                    <strong class="price-highlight">
-                        ₹<%= stats.highestSale.soldPrice.toLocaleString('en-IN') %>
-                    </strong>
+                    <%- categoryBadge(stats.highestSale.category) %>
+                    sold to <strong><%= stats.highestSale.soldTo ? stats.highestSale.soldTo.name : '—' %></strong>
+                    for <strong class="price-highlight"><%= money(stats.highestSale.soldPrice) %></strong>
                 </p>
             </div>
         </div>
     <% } %>
 
-    <!-- Team-wise Reports -->
     <div class="team-reports-section glass-card">
-        <h2><i class="fa-solid fa-users-rectangle"></i> Team Reports</h2>
+        <h2><i class="fa-solid fa-users-rectangle"></i> Teams</h2>
         <div class="teams-report-grid">
             <% teams.forEach(team => { %>
                 <div class="team-report-card" style="border-left: 5px solid <%= team.color %>">
                     <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                        <% if (team.logo) { %>
-                            <img src="<%= team.logo %>" alt="<%= team.teamName %>" class="team-logo-report" style="width: 45px; height: 45px; object-fit: contain; margin-right: 10px;">
+                        <% if (team.logo && team.logo.url) { %>
+                            <img src="<%= img(team.logo, 'logoSm') %>" alt="" style="width: 45px; height: 45px; object-fit: contain; margin-right: 10px;">
                         <% } %>
-                        <h3 style="color: <%= team.color %>; margin: 0;"><%= team.teamName %></h3>
+                        <h3 style="color: <%= team.color %>; margin: 0;"><%= team.name %></h3>
                     </div>
                     <div class="team-report-stats">
-                        <p><strong>Players:</strong> <%= team.playersCount %>/9</p>
-                        <p><strong>Spent:</strong> ₹<%= (team.initialPurse - team.remainingPurse).toLocaleString('en-IN') %></p>
-                        <p><strong>Remaining:</strong> ₹<%= team.remainingPurse.toLocaleString('en-IN') %></p>
+                        <p><strong>Players:</strong> <%= team.playersCount %>/<%= tournament.squad.max %></p>
+                        <p><strong>Spent:</strong> <%= money(team.spent) %></p>
+                        <p><strong>Remaining:</strong> <%= money(team.remainingPurse) %></p>
                     </div>
                     <div class="team-report-actions">
-                        <a href="/admin/teams/<%= team._id %>" class="btn btn-sm btn-secondary">
-                            View Details
-                        </a>
-                        <a href="/admin/reports/team-pdf/<%= team._id %>" class="btn btn-sm btn-primary">
-                            <i class="fa-solid fa-file-pdf"></i> Download PDF
-                        </a>
+                        <a href="/admin/teams/<%= team._id %>" class="btn btn-sm btn-secondary">Squad</a>
+                        <a href="/admin/reports/team-pdf/<%= team._id %>" class="btn btn-sm btn-primary"><i class="fa-solid fa-file-pdf"></i> PDF</a>
                     </div>
                 </div>
             <% }) %>
         </div>
     </div>
 
-    <!-- Top 10 Most Expensive Players -->
     <div class="top-players-section glass-card">
-        <h2><i class="fa-solid fa-gem"></i> Top 10 Most Expensive Players</h2>
-        <table class="top-players-table">
-            <thead>
-                <tr>
-                    <th>Rank</th>
-                    <th>Player</th>
-                    <th>Category</th>
-                    <th>Team</th>
-                    <th>Price</th>
-                    <th>Base Price</th>
-                    <th>Increment</th>
-                </tr>
-            </thead>
-            <tbody>
-                <% soldPlayers.slice(0, 10).forEach((player, index) => { %>
-                    <tr>
-                        <td><strong>#<%= index + 1 %></strong></td>
-                        <td><%= player.name %></td>
-                        <td>
-                            <span class="badge badge-<%= player.category %>">
-                                <%= player.category %>
-                            </span>
-                        </td>
-                        <td><%= player.soldTo.teamName %></td>
-                        <td class="price-cell">₹<%= player.soldPrice.toLocaleString('en-IN') %></td>
-                        <td>₹<%= player.basePrice.toLocaleString('en-IN') %></td>
-                        <td>
-                            <span class="increment-badge">
-                                +<%= ((player.soldPrice / player.basePrice - 1) * 100).toFixed(0) %>%
-                            </span>
-                        </td>
-                    </tr>
-                <% }) %>
-            </tbody>
-        </table>
+        <h2><i class="fa-solid fa-gem"></i> Top 10 buys</h2>
+        <% if (soldPlayers.length) { %>
+            <div class="table-responsive">
+                <table class="top-players-table">
+                    <thead><tr><th>Rank</th><th>Player</th><th>Category</th><th>Team</th><th>Price</th><th>Base</th><th>× Base</th></tr></thead>
+                    <tbody>
+                        <% soldPlayers.slice(0, 10).forEach((player, index) => { %>
+                            <% const base = categoryOf(player.category)?.basePrice || 0; %>
+                            <tr>
+                                <td><strong>#<%= index + 1 %></strong></td>
+                                <td><%= player.name %></td>
+                                <td><%- categoryBadge(player.category) %></td>
+                                <td><%= player.soldTo ? player.soldTo.name : '—' %></td>
+                                <td class="price-cell"><%= money(player.soldPrice) %></td>
+                                <td><%= money(base) %></td>
+                                <td><span class="increment-badge"><%= base ? (player.soldPrice / base).toFixed(1) + '×' : '—' %></span></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        <% } else { %>
+            <p class="no-data">No sales yet.</p>
+        <% } %>
     </div>
 </div>
 

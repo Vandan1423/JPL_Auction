@@ -1,19 +1,24 @@
+// Load .env before any other module reads process.env.
+import 'dotenv/config';
+
 import path from 'path';
 import http from 'http';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import dotenv from 'dotenv';
 import session from 'express-session';
+import MongoStore from 'connect-mongo';
+import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 
 import connectDB from './config/database.js';
 import adminRoutes from './routes/admin.js';
 import publicRoutes from './routes/public.js';
 import auctionRoutes from './routes/auction.js';
+import { viewLocals } from './middleware/viewLocals.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { setupSocket } from './socket/index.js';
+import { isCloudinaryConfigured } from './services/cloudinary.js';
 import logger from './utils/logger.js';
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,57 +32,52 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Sessions are kept in MongoDB, so admins stay logged in across server restarts.
 app.use(
 	session({
 		secret: process.env.SESSION_SECRET || 'change-me',
 		resave: false,
 		saveUninitialized: false,
+		store: MongoStore.create({
+			clientPromise: mongoose.connection.asPromise().then((connection) => connection.getClient()),
+			collectionName: 'sessions',
+			ttl: 24 * 60 * 60, // seconds
+		}),
 		cookie: {
 			maxAge: 24 * 60 * 60 * 1000, // 24 hours
 			secure: false, // Set to true in production with HTTPS
 			httpOnly: true,
-			sameSite: 'lax'
+			sameSite: 'lax',
 		},
 		rolling: true, // Reset maxAge on activity
 	})
 );
 
+app.use(viewLocals);
+
 const server = http.createServer(app);
 const io = new Server(server, {
-	cors: {
-		origin: '*',
-		methods: ['GET', 'POST'],
-	},
-	// Increase timeouts to prevent disconnections
+	// Increase timeouts to prevent disconnections during a long auction
 	pingTimeout: 120000, // 2 minutes
-	pingInterval: 30000,  // 30 seconds
-	// Enable compression
-	compression: true,
-	// Reconnection settings
-	allowUpgrade: true,
-	transports: ['polling', 'websocket']
+	pingInterval: 30000, // 30 seconds
+	transports: ['polling', 'websocket'],
 });
 
-// Make io accessible to routes
 app.set('io', io);
-
 app.use((req, _res, next) => {
 	req.io = io;
 	next();
 });
 
-// Session keep-alive middleware - touch session on any request to prevent expiry
-app.use((req, res, next) => {
-	if (req.session && req.session.isAdmin) {
-		// Touch the session to reset the expiration time
-		req.session.touch();
-	}
+// Session keep-alive: touch the session on every admin request...
+app.use((req, _res, next) => {
+	if (req.session?.isAdmin) req.session.touch();
 	next();
 });
 
-// Add endpoint for session keep-alive from client
+// ...and on the periodic ping sent by the admin pages.
 app.post('/keep-alive', (req, res) => {
-	if (req.session && req.session.isAdmin) {
+	if (req.session?.isAdmin) {
 		req.session.touch();
 		res.json({ status: 'success', timestamp: new Date().toISOString() });
 	} else {
@@ -85,101 +85,14 @@ app.post('/keep-alive', (req, res) => {
 	}
 });
 
-// Socket.IO connection handling
-io.on('connection', async (socket) => {
-	console.log('New client connected:', socket.id);
-
-	// Join auction room
-	socket.join('auction-room');
-
-	try {
-		// Import the necessary models
-		const { default: AuctionState } = await import('./models/AuctionState.js');
-		const { default: Player } = await import('./models/Player.js');
-		const { default: Team } = await import('./models/Team.js');
-
-		// Get current auction state to restore on reconnection
-		const auctionState = await AuctionState.findOne().populate('currentPlayer currentBidder');
-		let teamsData = null;
-
-		if (auctionState && auctionState.currentPlayer) {
-			teamsData = await Team.find().sort('teamNumber');
-		}
-
-		// Send initial connection confirmation with current state
-		socket.emit('connected', {
-			message: 'Connected to auction server',
-			socketId: socket.id,
-			auctionState: auctionState,
-			teamsData: teamsData,
-		});
-
-		// If there's an active auction, restore the state
-		if (auctionState && auctionState.isActive && auctionState.currentPlayer) {
-			socket.emit('player-selected', {
-				player: auctionState.currentPlayer,
-				auctionState: auctionState,
-				teams: teamsData,
-			});
-		}
-
-	} catch (error) {
-		console.error('Error getting auction state on connection:', error);
-		socket.emit('connected', {
-			message: 'Connected to auction server',
-			socketId: socket.id,
-		});
-	}
-
-	// Handle room joining
-	socket.on('join-room', (room) => {
-		socket.join(room);
-		console.log(`Socket ${socket.id} joined room: ${room}`);
-	});
-
-	// Handle keep-alive ping
-	socket.on('ping', () => {
-		socket.emit('pong');
-	});
-
-	// Handle state restoration request
-	socket.on('restore-state', async () => {
-		try {
-			const { default: AuctionState } = await import('./models/AuctionState.js');
-			const { default: Team } = await import('./models/Team.js');
-
-			const auctionState = await AuctionState.findOne().populate('currentPlayer currentBidder');
-			const teamsData = await Team.find().sort('teamNumber');
-
-			socket.emit('state-restored', {
-				auctionState: auctionState,
-				teamsData: teamsData,
-			});
-
-			if (auctionState && auctionState.isActive && auctionState.currentPlayer) {
-				socket.emit('player-selected', {
-					player: auctionState.currentPlayer,
-					auctionState: auctionState,
-					teams: teamsData,
-				});
-			}
-		} catch (error) {
-			console.error('Error restoring state:', error);
-		}
-	});
-
-	socket.on('disconnect', (reason) => {
-		console.log(`Client disconnected: ${socket.id}, Reason: ${reason}`);
-	});
-});
+setupSocket(io);
 
 app.use('/admin', adminRoutes);
 app.use('/auction', auctionRoutes);
 app.use('/', publicRoutes);
 
-// Root redirect
-app.get('/', (req, res) => {
-  res.redirect('/admin/login');
+app.get('/', (_req, res) => {
+	res.redirect('/admin/login');
 });
 
 // 404 handler (must be after all routes)
@@ -193,17 +106,19 @@ const PORT = process.env.PORT || 3000;
 const start = async () => {
 	await connectDB();
 
+	if (!isCloudinaryConfigured()) {
+		logger.warn('CLOUDINARY_URL is not set: image uploads are disabled until it is added to .env');
+	}
+
 	server.listen(PORT, () => {
 		logger.info(`Server started on port ${PORT}`);
-		console.log(`Server running on http://localhost:${PORT}`);
-		console.log(`Admin Panel: http://localhost:${PORT}/admin/login`);
+		console.log(`Admin Panel:    http://localhost:${PORT}/admin/login`);
 		console.log(`Public Display: http://localhost:${PORT}/display`);
 	});
 };
 
 start().catch((err) => {
 	logger.error('Failed to start server', { error: err.message });
-	console.error('Failed to start server:', err);
 	process.exit(1);
 });
 

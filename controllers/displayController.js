@@ -1,107 +1,47 @@
-import Player from '../models/Player.js';
-import Team from '../models/Team.js';
-import AuctionState from '../models/AuctionState.js';
+import Tournament from '../models/Tournament.js';
+import { getSnapshot } from '../services/auction.js';
+import { imageUrl } from '../services/cloudinary.js';
+import { currencyOf } from '../utils/format.js';
 
-/**
- * Show public display page
- */
-export const showDisplay = async (req, res) => {
+/** GET /display — pick a tournament (skipped when only one is running). */
+export const showDisplayIndex = async (req, res, next) => {
 	try {
-		// Get all teams sorted by team number
-		const teams = await Team.find().sort('teamNumber').lean();
+		const tournaments = await Tournament.find({ status: 'active' }).sort({ updatedAt: -1 }).lean();
+		if (tournaments.length === 1) return res.redirect(`/display/${tournaments[0].slug}`);
+		res.render('public/display-index', {
+			tournaments: tournaments.map((t) => ({ ...t, logoUrl: imageUrl(t.logo, 'logo') })),
+		});
+	} catch (error) {
+		next(error);
+	}
+};
 
-		// Get current auction state
-		let auctionState = await AuctionState.findOne().lean();
-		let currentPlayer = null;
-		let currentBidder = null;
+const findBySlug = (slug) => Tournament.findOne({ slug: String(slug || '').toLowerCase() });
 
-		if (auctionState && auctionState.currentPlayer) {
-			currentPlayer = await Player.findById(auctionState.currentPlayer).lean();
-		}
-
-		if (auctionState && auctionState.currentBidder) {
-			currentBidder = await Team.findById(auctionState.currentBidder).lean();
-		}
-
-		// Get statistics
-		const soldCount = await Player.countDocuments({ status: 'sold' });
-		const unsoldCount = await Player.countDocuments({ status: 'unsold' });
-		const totalPlayers = await Player.countDocuments();
+/** GET /display/:slug — projector screen for one tournament. */
+export const showDisplay = async (req, res, next) => {
+	try {
+		const tournament = await findBySlug(req.params.slug);
+		if (!tournament) return res.status(404).render('error', { title: 'Not found', message: 'No tournament at this address', showNav: false });
 
 		res.render('public/display', {
-			teams: teams.map((t) => ({
-				_id: t._id,
-				teamName: t.teamName,
-				teamNumber: t.teamNumber,
-				color: t.color,
-				logo: t.logo,
-				remainingPurse: t.remainingPurse,
-				initialPurse: t.initialPurse || 1000000,
-				playersCount: t.playersCount,
-			})),
-			currentPlayer,
-			currentBidder,
-			auctionState: auctionState || {
-				currentBid: 0,
-				isActive: false,
-				roundNumber: 0,
-				bidHistory: [],
-			},
-			soldCount,
-			unsoldCount,
-			totalPlayers,
+			tournament,
+			logoUrl: imageUrl(tournament.logo, 'logo'),
+			currency: currencyOf(tournament.currency),
+			snapshot: await getSnapshot(tournament),
 		});
 	} catch (error) {
-		console.error('Error showing display:', error);
-		res.status(500).send('Error loading display');
+		next(error);
 	}
 };
 
-/**
- * Get display data via API (for polling fallback)
- */
-export const getDisplayData = async (req, res) => {
+/** GET /api/display/:slug — polling fallback when the socket is down. */
+export const getDisplayData = async (req, res, next) => {
 	try {
-		const teams = await Team.find().sort('teamNumber').lean();
-		const auctionState = await AuctionState.findOne().lean();
-
-		let currentPlayer = null;
-		let currentBidder = null;
-
-		if (auctionState && auctionState.currentPlayer) {
-			currentPlayer = await Player.findById(auctionState.currentPlayer).lean();
-		}
-
-		if (auctionState && auctionState.currentBidder) {
-			currentBidder = await Team.findById(auctionState.currentBidder).lean();
-		}
-
-		const soldCount = await Player.countDocuments({ status: 'sold' });
-		const unsoldCount = await Player.countDocuments({ status: 'unsold' });
-
-		res.json({
-			teams: teams.map((t) => ({
-				_id: t._id,
-				teamName: t.teamName,
-				teamNumber: t.teamNumber,
-				color: t.color,
-				logo: t.logo,
-				remainingPurse: t.remainingPurse,
-				playersCount: t.playersCount,
-			})),
-			currentPlayer,
-			currentBidder,
-			auctionState: auctionState || {},
-			soldCount,
-			unsoldCount,
-		});
+		const tournament = await findBySlug(req.params.slug);
+		if (!tournament) return res.status(404).json({ success: false, message: 'Tournament not found' });
+		res.json({ success: true, snapshot: await getSnapshot(tournament) });
 	} catch (error) {
-		console.error('Error getting display data:', error);
-		res.status(500).json({ error: error.message });
+		next(error);
 	}
-};
-
-export default {
-	showDisplay,
-	getDisplayData,
 };

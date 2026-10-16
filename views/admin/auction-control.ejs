@@ -1,289 +1,73 @@
-<%- include('../partials/header', {title: 'Auction Control', showNav: true, activePage: 'auction'}) %>
-<!-- SortableJS for player reordering -->
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<%- include('../partials/header', { title, showNav: true, activePage: 'auction' }) %>
 
-<div class="auction-control-container">
-
-    <!-- Main Auction Area -->
+<div class="auction-control-container" id="auctionControl">
     <div class="auction-main-area">
-        
-        <!-- Left Sidebar: Player Selection & Info -->
-        <div class="auction-sidebar">
+
+        <!-- Left: choose the next player -->
+        <aside class="auction-sidebar">
+            <div class="sidebar-section next-player-actions">
+                <button type="button" class="btn btn-primary" id="nextPlayerBtn" title="Next player in the auction order (N)">
+                    <i class="fa-solid fa-forward-step"></i> Next player <kbd>N</kbd>
+                </button>
+                <button type="button" class="btn btn-secondary" id="randomPlayerBtn" title="Random player from the selected category (R)">
+                    <i class="fa-solid fa-shuffle"></i> Random <kbd>R</kbd>
+                </button>
+            </div>
+
             <div class="sidebar-section">
-                <h3><i class="fa-solid fa-hand-pointer"></i> Manual Player Selection</h3>
-                
-                <!-- Category Filter Buttons -->
-                <div class="category-filters">
-                    <button class="filter-btn active" onclick="filterCategory('all', this)">
-                        All (<span id="countAll"><%= unsoldCount %></span>)
-                    </button>
-                    <button class="filter-btn" onclick="filterCategory('A', this)">
-                        A (<span id="countA"><%= unsoldByCategory.A || 0 %></span>)
-                    </button>
-                    <button class="filter-btn" onclick="filterCategory('B', this)">
-                        B (<span id="countB"><%= unsoldByCategory.B || 0 %></span>)
-                    </button>
-                    <button class="filter-btn" onclick="filterCategory('C', this)">
-                        C (<span id="countC"><%= unsoldByCategory.C || 0 %></span>)
-                    </button>
+                <h3><i class="fa-solid fa-users"></i> Players in the pool</h3>
+                <div class="category-filters" id="categoryFilters"></div>
+                <input type="search" id="playerSearch" class="form-control form-control-sm" placeholder="Search player…" autocomplete="off">
+                <div class="reorder-bar">
+                    <button type="button" id="toggleReorderBtn" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-up-down"></i> Reorder</button>
+                    <span id="reorderStatus" class="muted"></span>
                 </div>
-
-                <!-- Player Search -->
-                <input 
-                    type="text" 
-                    id="playerSearch" 
-                    class="form-control" 
-                    placeholder="Search player..."
-                    onkeyup="searchPlayers()"
-                >
-                <i class="fa-solid fa-search" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;"></i>
-
-                <!-- Player List -->
-                <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.4rem;">
-                    <span id="reorderHint" style="font-size:0.75rem; color:var(--text-muted,#64748b); display:none;">
-                        <i class="fa-solid fa-grip-vertical" style="color:#f59e0b;"></i> Drag <i class="fa-solid fa-grip-vertical"></i> to reorder &nbsp;|&nbsp;
-                    </span>
-                    <button id="toggleReorderBtn" onclick="toggleReorderMode()" style="font-size:0.72rem; padding:0.2rem 0.6rem; border:1px solid #f59e0b; background:transparent; color:#f59e0b; border-radius:6px; cursor:pointer;">
-                        <i class="fa-solid fa-arrow-up-down"></i> Reorder
-                    </button>
-                    <span id="savingIndicator" style="font-size:0.72rem; color:#10b981; display:none;"><i class="fa-solid fa-check"></i> Saved</span>
-                </div>
-                <div class="players-list" id="playersList">
-                    <% unsoldPlayers.forEach(player => { %>
-                        <div class="player-list-item" data-category="<%= player.category %>" data-player-id="<%= player._id %>" onclick="selectPlayer('<%= player._id %>')">
-                            <span class="player-drag-handle" style="display:none; cursor:grab; padding:0 6px 0 0; color:var(--text-muted,#64748b); font-size:0.9rem; flex-shrink:0;" title="Drag to reorder">
-                                <i class="fa-solid fa-grip-vertical"></i>
-                            </span>
-                            <% if (player.imageUrl) { %>
-                                <img src="<%= player.imageUrl %>" alt="<%= player.name %>" style="width: 35px; height: 35px; object-fit: cover; border-radius: 50%; margin-right: 8px;" onerror="this.style.display='none'">
-                            <% } %>
-                            <div class="player-info">
-                                <span class="player-number">#<%= player.playerNumber %></span>
-                                <span class="player-name-text"><%= player.name %></span>
-                            </div>
-                            <span class="badge badge-<%= player.category %>"><%= player.category %></span>
-                        </div>
-                    <% }) %>
-                    <% if (unsoldPlayers.length === 0) { %>
-                        <p class="no-players"><i class="fa-solid fa-ghost"></i> No unsold players available</p>
-                    <% } %>
-                </div>
+                <div class="players-list" id="playersList"></div>
             </div>
 
-            <!-- Bid History -->
             <div class="sidebar-section">
-                <h3><i class="fa-solid fa-clock-rotate-left"></i> Bid History</h3>
-                <div class="bid-history" id="bidHistory">
-                    <% if (auctionState.bidHistory && auctionState.bidHistory.length > 0) { %>
-                        <% auctionState.bidHistory.slice().reverse().forEach(bid => { %>
-                            <div class="bid-entry">
-                                <span><%= bid.teamName %></span>
-                                <span class="bid-amount">₹<%= bid.bidAmount.toLocaleString('en-IN') %></span>
-                            </div>
-                        <% }) %>
-                    <% } else { %>
-                        <p class="no-bids">No bids yet</p>
-                    <% } %>
-                </div>
+                <h3><i class="fa-solid fa-clock-rotate-left"></i> Bid history</h3>
+                <div class="bid-history" id="bidHistory"></div>
             </div>
-        </div>
+        </aside>
 
-        <!-- Center: Current Player & Bidding -->
-        <div class="auction-center">
-            
-            <!-- Current Player Display -->
-            <div class="current-player-panel" id="currentPlayerPanel">
-                <% if (currentPlayer) { %>
-                    <div class="player-showcase">
-                        <div class="player-image-showcase">
-                            <% if (currentPlayer.imageUrl) { %>
-                                <img src="<%= currentPlayer.imageUrl %>" alt="<%= currentPlayer.name %>" style="width: 180px; height: 180px; object-fit: cover; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" onerror="this.src='/images/placeholder-player.png'">
-                            <% } else { %>
-                                <div style="width: 180px; height: 180px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                                    <%= currentPlayer.name.charAt(0).toUpperCase() %>
-                                </div>
-                            <% } %>
-                        </div>
-                        <div class="player-details">
-                            <h1 class="player-name"><%= currentPlayer.name %></h1>
-                            <div class="player-meta">
-                                <span class="player-number">#<%= currentPlayer.playerNumber %></span>
-                                <span class="badge badge-<%= currentPlayer.category %> badge-lg">
-                                    Category <%= currentPlayer.category %>
-                                </span>
-                            </div>
-                            <div class="base-price">
-                                Base Price: ₹<%= currentPlayer.basePrice.toLocaleString('en-IN') %>
-                            </div>
-                        </div>
+        <!-- Centre: the player under the hammer and the teams -->
+        <section class="auction-center">
+            <div class="current-player-panel" id="currentPlayerPanel"></div>
+            <div class="teams-bidding-grid" id="teamsBiddingGrid"></div>
+        </section>
 
-                        <!-- Current Bid Display -->
-                        <div class="current-bid-display">
-                            <div class="bid-label">Current Bid</div>
-                            <div class="bid-amount-display" id="currentBidAmount">
-                                ₹<%= (auctionState.currentBid || currentPlayer.basePrice).toLocaleString('en-IN') %>
-                            </div>
-                            <div class="bidding-team" id="biddingTeam">
-                                <% if (auctionState.currentBidder) { %>
-                                    <% if (auctionState.currentBidder.logo) { %>
-                                        <img src="<%= auctionState.currentBidder.logo %>" alt="<%= auctionState.currentBidder.teamName %>" style="width: 30px; height: 30px; object-fit: contain; margin-right: 8px; vertical-align: middle;">
-                                    <% } %>
-                                    <%= auctionState.currentBidder.teamName %>
-                                <% } else { %>
-                                    No bids yet
-                                <% } %>
-                            </div>
-                        </div>
-                    </div>
-                <% } else { %>
-                    <div class="no-player-selected">
-                        <i class="fa-solid fa-gavel" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-                        <h2>No Player Selected</h2>
-                        <p>Click "Random Player" or select from the list</p>
-                    </div>
-                <% } %>
-            </div>
-
-            <!-- Team Bidding Grid -->
-            <div class="teams-bidding-grid" id="teamsBiddingGrid">
-                <% teams.forEach(team => { %>
-                    <% const isSquadFull = team.playersCount >= 9; %>
-                    <div class="team-bid-card<%= isSquadFull ? ' team-blocked' : '' %>" data-team-id="<%= team._id %>" style="border-left: 4px solid <%= team.color %>">
-                        <div class="team-header">
-                            <% if (team.logo) { %>
-                                <img src="<%= team.logo %>" alt="<%= team.teamName %>" class="team-logo-auction" style="width: 40px; height: 40px; object-fit: contain; margin-right: 8px;">
-                            <% } %>
-                            <h3 style="color: <%= team.color %>"><%= team.teamName %></h3>
-                        </div>
-                        
-                        <div class="team-bid-info">
-                            <div class="info-line">
-                                <span>Purse:</span>
-                                <span class="purse-amount" data-team-purse="<%= team.remainingPurse %>">
-                                    ₹<%= team.remainingPurse.toLocaleString('en-IN') %>
-                                </span>
-                            </div>
-                            <div class="info-line">
-                                <span>Players:</span>
-                                <span class="players-count"><%= team.playersCount %>/9</span>
-                            </div>
-                            <div class="info-line">
-                                <span>Max Bid:</span>
-                                <span class="max-bid" data-max-bid="<%= team.maxBidAllowed %>"
-                                      style="color: <%= team.maxBidAllowed <= 0 ? 'var(--danger)' : 'var(--primary)' %>">
-                                    ₹<%= team.maxBidAllowed.toLocaleString('en-IN') %>
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="bid-options">
-                            <button 
-                                class="btn-bid btn-bid-quick" 
-                                onclick="placeBid('<%= team._id %>')"
-                                data-team-id="<%= team._id %>"
-                                <%= isSquadFull || !currentPlayer ? 'disabled' : '' %>
-                            >
-                                BID
-                            </button>
-                            <button 
-                                class="btn-bid btn-bid-custom" 
-                                onclick="openCustomBidModal('<%= team._id %>', '<%= team.teamName %>')"
-                                data-team-id="<%= team._id %>"
-                                <%= isSquadFull || !currentPlayer ? 'disabled' : '' %>
-                            >
-                                Custom
-                            </button>
-                        </div>
-                        
-                        <% if (isSquadFull) { %>
-                            <div class="bid-cap-indicator cap-full" style="display: block;">SQUAD FULL</div>
-                        <% } %>
-                    </div>
-                <% }) %>
-            </div>
-
-        </div>
-
-        <!-- Right Sidebar: Action Buttons & Recent Sales -->
-        <div class="auction-sidebar-right">
-            <!-- Quick Stats -->
+        <!-- Right: result buttons -->
+        <aside class="auction-sidebar-right">
             <div class="sidebar-stats">
-                <div class="sidebar-stat-item">
-                    <span class="stat-label">Round</span>
-                    <span class="stat-value" id="roundNumber"><%= auctionState.roundNumber || 0 %></span>
-                </div>
-                <div class="sidebar-stat-item">
-                    <span class="stat-label">Sold</span>
-                    <span class="stat-value stat-success" id="soldCount"><%= soldCount %></span>
-                </div>
-                <div class="sidebar-stat-item">
-                    <span class="stat-label">Left</span>
-                    <span class="stat-value stat-warning" id="unsoldCount"><%= unsoldCount %></span>
-                </div>
+                <div class="sidebar-stat-item"><span class="stat-label">Round</span><span class="stat-value" id="roundNumber">0</span></div>
+                <div class="sidebar-stat-item"><span class="stat-label">Sold</span><span class="stat-value stat-success" id="soldCount">0</span></div>
+                <div class="sidebar-stat-item"><span class="stat-label">In pool</span><span class="stat-value stat-warning" id="poolCount">0</span></div>
             </div>
 
             <div class="sidebar-section sidebar-actions">
-                <button 
-                    class="btn btn-success btn-large" 
-                    id="soldBtn" 
-                    onclick="markSold()"
-                    <%= !currentPlayer || !auctionState.currentBidder ? 'disabled' : '' %>
-                >
-                    <i class="fa-solid fa-check"></i> SOLD
-                </button>
-                <button 
-                    class="btn btn-danger btn-large" 
-                    id="unsoldBtn" 
-                    onclick="markUnsold()"
-                    <%= !currentPlayer ? 'disabled' : '' %>
-                >
-                    <i class="fa-solid fa-xmark"></i> UNSOLD
-                </button>
-                <button class="btn btn-secondary btn-undo" id="undoBtn" onclick="undoLastSale()">
-                    <i class="fa-solid fa-rotate-left"></i> Undo Last Sale
-                </button>
-                <button class="btn btn-secondary btn-undo" id="shortcutsBtn" onclick="displayShortcutsModal()">
-                    <i class="fa-solid fa-keyboard"></i> Shortcuts
-                </button>
+                <button type="button" class="btn btn-success btn-large" id="soldBtn" disabled><i class="fa-solid fa-check"></i> Sold</button>
+                <button type="button" class="btn btn-danger btn-large" id="unsoldBtn" disabled><i class="fa-solid fa-xmark"></i> Unsold</button>
+                <button type="button" class="btn btn-secondary btn-undo" id="withdrawBtn" disabled><i class="fa-solid fa-user-slash"></i> Withdraw player</button>
+                <button type="button" class="btn btn-secondary btn-undo" id="undoBtn"><i class="fa-solid fa-rotate-left"></i> Undo last sale</button>
+                <a class="btn btn-secondary btn-undo" href="/display/<%= tournament.slug %>" target="_blank" rel="noopener"><i class="fa-solid fa-tv"></i> Open live display</a>
+                <button type="button" class="btn btn-ghost btn-undo" id="shortcutsBtn"><i class="fa-solid fa-keyboard"></i> Shortcuts</button>
             </div>
 
             <div class="sidebar-section">
-                <h3><i class="fa-solid fa-receipt"></i> Recent Sales</h3>
-                <div class="recent-sales" id="recentSales">
-                    <% if (recentSales && recentSales.length > 0) { %>
-                        <% recentSales.forEach(sale => { %>
-                            <div class="sale-entry">
-                                <div class="sale-player">
-                                    <% if (sale.imageUrl) { %>
-                                        <img src="<%= sale.imageUrl %>" alt="<%= sale.name %>" style="width: 25px; height: 25px; object-fit: cover; border-radius: 50%; margin-right: 6px; vertical-align: middle;" onerror="this.style.display='none'">
-                                    <% } %>
-                                    <%= sale.name %>
-                                </div>
-                                <div class="sale-team" style="color: <%= sale.soldTo ? sale.soldTo.color : '#666' %>">
-                                    <% if (sale.soldTo && sale.soldTo.logo) { %>
-                                        <img src="<%= sale.soldTo.logo %>" alt="<%= sale.soldTo.teamName %>" style="width: 20px; height: 20px; object-fit: contain; margin-right: 6px; vertical-align: middle;">
-                                    <% } %>
-                                    <%= sale.soldTo ? sale.soldTo.teamName : 'Unknown' %>
-                                </div>
-                                <div class="sale-price">₹<%= sale.soldPrice.toLocaleString('en-IN') %></div>
-                            </div>
-                        <% }) %>
-                    <% } else { %>
-                        <p class="no-sales">No sales yet</p>
-                    <% } %>
-                </div>
+                <h3><i class="fa-solid fa-receipt"></i> Recent sales</h3>
+                <div class="recent-sales" id="recentSales"></div>
             </div>
-        </div>
+        </aside>
     </div>
 </div>
 
-<!-- Toast Notifications -->
 <div id="toastContainer" class="toast-container"></div>
 
-<!-- Confirmation Modal -->
+<!-- Confirmation -->
 <div id="confirmModal" class="modal" style="display: none;">
     <div class="modal-content">
-        <h3 id="confirmTitle">Confirm Action</h3>
+        <h3 id="confirmTitle">Confirm</h3>
         <p id="confirmMessage"></p>
         <div class="modal-actions">
             <button class="btn btn-primary" id="confirmYes">Yes</button>
@@ -292,115 +76,46 @@
     </div>
 </div>
 
-<!-- Loading Overlay -->
-<div id="loadingOverlay" class="loading-overlay" style="display: none;">
-    <div class="loading-spinner"></div>
-    <p id="loadingMessage">Loading...</p>
-</div>
-
-<!-- Custom Bid Modal -->
+<!-- Custom bid -->
 <div class="modal" id="customBidModal" style="display: none;">
     <div class="modal-content">
-        <h3>Custom Bid Amount</h3>
+        <h3>Custom bid</h3>
         <p>Team: <strong id="customBidTeamName"></strong></p>
-        <p>Current Bid: <strong id="customBidCurrentAmount"></strong></p>
-        <p id="customBidMinHint" style="color: var(--warning); font-size: 0.9em;"></p>
-        <div class="form-group">
-            <label for="customBidInput">Enter Bid Amount:</label>
-            <input type="number" id="customBidInput" class="form-control" placeholder="Enter amount" step="1000" min="0">
-        </div>
-        <div class="modal-actions">
-            <button class="btn btn-primary" onclick="submitCustomBid()">Place Bid</button>
-            <button class="btn btn-secondary" onclick="closeCustomBidModal()">Cancel</button>
-        </div>
+        <p id="customBidHint" class="muted"></p>
+        <form id="customBidForm">
+            <div class="form-group">
+                <label for="customBidInput">Bid amount</label>
+                <div class="input-affix"><span><%= currencyLabel %></span>
+                    <input type="number" id="customBidInput" class="form-control" min="1" step="1" required>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary">Place bid</button>
+                <button type="button" class="btn btn-secondary" id="customBidCancel">Cancel</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<script>
-// Global variables
-let currentCategory = 'all';
-let currentPlayerId = '<%= currentPlayer ? currentPlayer._id : "" %>';
-let currentPlayerCategory = '<%= currentPlayer ? currentPlayer.category : "" %>';
-let currentAuctionState = <%- JSON.stringify(auctionState) %>;
-let teams = <%- JSON.stringify(teams) %>;
-</script>
+<!-- Keyboard shortcuts -->
+<dialog id="shortcutsDialog" class="app-dialog">
+    <h3><i class="fa-solid fa-keyboard" style="color: var(--primary)"></i> Keyboard shortcuts</h3>
+    <div class="shortcuts-grid">
+        <div class="shortcut-item"><kbd>1</kbd>–<kbd>9</kbd><span>Bid for team 1–9 (<kbd>0</kbd> = team 10)</span></div>
+        <div class="shortcut-item"><kbd>N</kbd><span>Next player in order</span></div>
+        <div class="shortcut-item"><kbd>R</kbd><span>Random player</span></div>
+        <div class="shortcut-item"><kbd>Space</kbd><span>Sold</span></div>
+        <div class="shortcut-item"><kbd>U</kbd><span>Unsold</span></div>
+        <div class="shortcut-item"><kbd>Ctrl/⌘</kbd> + <kbd>Z</kbd><span>Undo last sale</span></div>
+        <div class="shortcut-item"><kbd>/</kbd><span>Search players</span></div>
+    </div>
+    <div class="dialog-actions"><button class="btn btn-primary" data-close-dialog>Got it</button></div>
+</dialog>
 
 <script>
-// ===== PLAYER REORDER IN AUCTION PANEL =====
-let _sortableInstance = null;
-let _reorderMode = false;
-let _saveTimeout = null;
-
-function toggleReorderMode() {
-    _reorderMode = !_reorderMode;
-    const btn = document.getElementById('toggleReorderBtn');
-    const hint = document.getElementById('reorderHint');
-    const handles = document.querySelectorAll('.player-drag-handle');
-    const playersList = document.getElementById('playersList');
-
-    if (_reorderMode) {
-        btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Done';
-        btn.style.background = 'rgba(245,158,11,0.15)';
-        hint.style.display = 'inline';
-        handles.forEach(h => h.style.display = 'inline');
-
-        if (!_sortableInstance) {
-            _sortableInstance = Sortable.create(playersList, {
-                handle: '.player-drag-handle',
-                animation: 150,
-                ghostClass: 'player-item-ghost',
-                onEnd: function() {
-                    autoSaveOrder();
-                }
-            });
-        }
-    } else {
-        btn.innerHTML = '<i class="fa-solid fa-arrow-up-down"></i> Reorder';
-        btn.style.background = 'transparent';
-        hint.style.display = 'none';
-        handles.forEach(h => h.style.display = 'none');
-    }
-}
-
-function autoSaveOrder() {
-    clearTimeout(_saveTimeout);
-    _saveTimeout = setTimeout(async () => {
-        const rows = document.querySelectorAll('#playersList .player-list-item');
-        const playerIds = Array.from(rows).map(r => r.getAttribute('data-player-id'));
-
-        const indicator = document.getElementById('savingIndicator');
-        indicator.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
-        indicator.style.display = 'inline';
-        indicator.style.color = '#f59e0b';
-
-        try {
-            const res = await fetch('/admin/api/players/reorder', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerIds })
-            });
-            const data = await res.json();
-            if (data.success) {
-                indicator.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
-                indicator.style.color = '#10b981';
-                setTimeout(() => { indicator.style.display = 'none'; }, 2500);
-            } else {
-                indicator.innerHTML = '<i class="fa-solid fa-xmark"></i> Error';
-                indicator.style.color = '#ef4444';
-            }
-        } catch(e) {
-            indicator.innerHTML = '<i class="fa-solid fa-xmark"></i> Error';
-            indicator.style.color = '#ef4444';
-        }
-    }, 400);
-}
+    window.AUCTION_INITIAL = <%- json({ snapshot, queue, categories }) %>;
 </script>
-
-<style>
-.player-item-ghost { opacity: 0.4; background: rgba(245,158,11,0.12) !important; border: 1px dashed #f59e0b !important; }
-.player-drag-handle:hover { color: #f59e0b !important; }
-</style>
-
-<!-- admin.js is loaded via footer partial -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script defer src="/js/auction-control.js"></script>
 
 <%- include('../partials/footer') %>

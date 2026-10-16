@@ -1,146 +1,115 @@
-<%- include('../partials/header', {title: team.teamName + ' Details', showNav: true, activePage: 'teams'}) %>
+<%- include('../partials/header', { title, showNav: true, activePage: 'teams' }) %>
 
 <div class="team-details-container">
-    <!-- Team Header -->
     <div class="team-details-header" style="border-left: 5px solid <%= team.color %>">
         <div class="header-content">
-            <% if (team.logo) { %>
-                <img src="<%= team.logo %>" alt="<%= team.teamName %>" class="team-logo-details" style="width: 60px; height: 60px; object-fit: contain; margin-right: 15px;">
+            <% if (team.logo && team.logo.url) { %>
+                <img src="<%= img(team.logo, 'logoSm') %>" alt="" class="team-logo-details" style="width: 60px; height: 60px; object-fit: contain; margin-right: 15px;">
             <% } %>
-            <h1 style="color: <%= team.color %>"><%= team.teamName %></h1>
-            <span class="team-badge" style="background: <%= team.color %>">
-                Team #<%= team.teamNumber %>
-            </span>
+            <div>
+                <h1 style="color: <%= team.color %>"><%= team.name %></h1>
+                <p class="muted">Owner: <%= team.owner && team.owner.name ? team.owner.name : 'not set' %><%= team.owner && team.owner.isPlaying ? ' (plays)' : '' %></p>
+            </div>
         </div>
-        <a href="/admin/teams" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Back to Teams</a>
+        <div class="header-actions">
+            <a href="/admin/reports/team-pdf/<%= team._id %>" class="btn btn-secondary"><i class="fa-solid fa-file-pdf"></i> Squad PDF</a>
+            <a href="/admin/teams" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> All teams</a>
+        </div>
     </div>
 
-    <!-- Team Statistics -->
     <div class="stats-grid">
         <div class="stat-box">
-            <h3><%= team.playersCount %>/9</h3>
-            <p>Squad Strength</p>
-            <small><%= 11 - team.playersCount %> slots remaining</small>
+            <h3><%= team.playersCount %>/<%= tournament.squad.max %></h3>
+            <p>Squad</p>
+            <small><%= team.slotsLeft %> slot<%= team.slotsLeft === 1 ? '' : 's' %> left<%= slotsToMinimum ? ` · ${slotsToMinimum} to reach the minimum` : '' %></small>
         </div>
         <div class="stat-box">
-            <h3>₹<%= team.remainingPurse.toLocaleString('en-IN') %></h3>
-            <p>Remaining Purse</p>
-            <small><%= ((team.remainingPurse / team.initialPurse) * 100).toFixed(1) %>% left</small>
+            <h3><%= money(team.remainingPurse) %></h3>
+            <p>Remaining purse</p>
+            <small><%= ((team.remainingPurse / tournament.purse) * 100).toFixed(1) %>% left</small>
         </div>
         <div class="stat-box">
-            <h3>₹<%= totalSpent.toLocaleString('en-IN') %></h3>
-            <p>Total Spent</p>
-            <small><%= ((totalSpent / team.initialPurse) * 100).toFixed(1) %>% used</small>
+            <h3><%= money(team.spent) %></h3>
+            <p>Spent</p>
+            <small><%= ((team.spent / tournament.purse) * 100).toFixed(1) %>% used</small>
         </div>
         <div class="stat-box">
-            <h3>₹<%= maxBidAllowed.toLocaleString('en-IN') %></h3>
-            <p>Max Bid Allowed</p>
-            <small>For next player</small>
+            <h3><%= money(team.maxBidAllowed) %></h3>
+            <p>Max bid now</p>
+            <small>Keeps enough for the rest of the squad</small>
         </div>
     </div>
 
-    <!-- Squad Composition -->
+    <% if (missingRoles.length) { %>
+        <div class="alert alert-warning">
+            <i class="fa-solid fa-user-plus"></i>
+            <span>Still needs: <%= missingRoles.map(r => `${r.short} × ${r.role}`).join(', ') %></span>
+        </div>
+    <% } %>
+
     <div class="squad-section glass-card">
-        <h2><i class="fa-solid fa-chart-pie"></i> Squad Composition by Category</h2>
+        <h2><i class="fa-solid fa-chart-pie"></i> By category</h2>
         <div class="composition-grid">
-            <div class="comp-card comp-A">
-                <h3>Category A</h3>
-                <p class="comp-count"><%= categoryBreakdown.A || 0 %> players</p>
-                <p class="comp-value">₹<%= categorySpending.A.toLocaleString('en-IN') %></p>
-            </div>
-            <div class="comp-card comp-B">
-                <h3>Category B</h3>
-                <p class="comp-count"><%= categoryBreakdown.B || 0 %> players</p>
-                <p class="comp-value">₹<%= categorySpending.B.toLocaleString('en-IN') %></p>
-            </div>
-            <div class="comp-card comp-C">
-                <h3>Category C</h3>
-                <p class="comp-count"><%= categoryBreakdown.C || 0 %> players</p>
-                <p class="comp-value">₹<%= categorySpending.C.toLocaleString('en-IN') %></p>
-            </div>
+            <% categorySpending.forEach(({ category, count, spent }) => { %>
+                <div class="comp-card" style="border-color: <%= category.color %>; background: color-mix(in srgb, <%= category.color %> 10%, white)">
+                    <h3><%= category.name %></h3>
+                    <p class="comp-count"><%= count %><%= category.maxPerTeam !== null && category.maxPerTeam !== undefined ? ` / ${category.maxPerTeam}` : '' %> players</p>
+                    <p class="comp-value"><%= money(spent) %></p>
+                </div>
+            <% }) %>
         </div>
     </div>
 
-    <!-- Players List -->
     <div class="players-section glass-card">
-        <h2><i class="fa-solid fa-users"></i> Squad Players (<%= team.playersCount %>)</h2>
-        
-        <% if (team.players && team.players.length > 0) { %>
-            <table class="squad-table">
-                <thead>
-                    <tr>
-                        <th>S.No.</th>
-                        <th>Player Name</th>
-                        <th>Category</th>
-                        <th>Base Price</th>
-                        <th>Price Paid</th>
-                        <th>Value</th>
-                        <th>Bought At</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% team.players.forEach((p, index) => { %>
-                        <tr>
-                            <td><%= index + 1 %></td>
-                            <td><strong><%= p.playerName %></strong></td>
-                            <td>
-                                <span class="badge badge-<%= p.category %>">
-                                    <%= p.category %>
-                                </span>
-                            </td>
-                            <td>₹<%= p.playerId.basePrice.toLocaleString('en-IN') %></td>
-                            <td class="price-paid">₹<%= p.pricePaid.toLocaleString('en-IN') %></td>
-                            <td>
-                                <% const value = ((p.pricePaid / p.playerId.basePrice) * 100).toFixed(0); %>
-                                <span class="value-indicator value-<%= value > 150 ? 'high' : value < 100 ? 'low' : 'fair' %>">
-                                    <%= value %>%
-                                </span>
-                            </td>
-                            <td><%= new Date(p.boughtAt).toLocaleString() %></td>
-                        </tr>
-                    <% }) %>
-                </tbody>
-                <tfoot>
-                    <tr class="total-row">
-                        <td colspan="4"><strong>TOTAL</strong></td>
-                        <td colspan="3"><strong>₹<%= totalSpent.toLocaleString('en-IN') %></strong></td>
-                    </tr>
-                </tfoot>
-            </table>
-        <% } else { %>
-            <div class="no-players">
-                <i class="fa-solid fa-users-slash" style="font-size: 2rem; color: var(--text-muted); margin-bottom: 0.5rem;"></i>
-                <p>No players bought yet</p>
+        <h2><i class="fa-solid fa-users"></i> Squad (<%= team.playersCount %>)</h2>
+        <% if (squad.length) { %>
+            <div class="table-responsive">
+                <table class="squad-table">
+                    <thead><tr><th>#</th><th>Player</th><th>Role</th><th>Category</th><th>Base</th><th>Paid</th><th>Bought</th></tr></thead>
+                    <tbody>
+                        <% squad.forEach((p, index) => { %>
+                            <% const category = categoryOf(p.category); %>
+                            <tr>
+                                <td><%= index + 1 %></td>
+                                <td>
+                                    <div class="player-cell">
+                                        <% if (p.photoThumb) { %><img src="<%= p.photoThumb %>" alt="" class="player-avatar"><% } else { %><span class="player-avatar initials"><%= p.name.charAt(0).toUpperCase() %></span><% } %>
+                                        <strong><%= p.name %></strong>
+                                        <% if (p.isOwner) { %><span class="chip chip-info">Owner</span><% } %>
+                                    </div>
+                                </td>
+                                <td><%= p.role || '—' %></td>
+                                <td><%- p.isOwner ? '—' : categoryBadge(p.category) %></td>
+                                <td><%= category ? money(category.basePrice) : '—' %></td>
+                                <td class="price-paid"><%= money(p.soldPrice) %></td>
+                                <td><%= p.soldAt ? new Date(p.soldAt).toLocaleString() : (p.isOwner ? 'Owner' : '—') %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row"><td colspan="5"><strong>Total</strong></td><td colspan="2"><strong><%= money(team.spent) %></strong></td></tr>
+                    </tfoot>
+                </table>
             </div>
+        <% } else { %>
+            <div class="no-players"><p>No players yet</p></div>
         <% } %>
     </div>
 
-    <!-- Insights -->
     <div class="insights-section glass-card">
-        <h2><i class="fa-solid fa-chart-line"></i> Team Insights</h2>
+        <h2><i class="fa-solid fa-chart-line"></i> Insights</h2>
         <div class="insights-grid">
             <div class="insight-card">
-                <h4>Most Expensive Player</h4>
-                <% if (mostExpensivePlayer) { %>
-                    <p><%= mostExpensivePlayer.name %></p>
-                    <p class="insight-value">₹<%= mostExpensivePlayer.price.toLocaleString('en-IN') %></p>
-                <% } else { %>
-                    <p>-</p>
-                <% } %>
+                <h4>Most expensive buy</h4>
+                <% if (mostExpensive) { %>
+                    <p><%= mostExpensive.name %></p>
+                    <p class="insight-value"><%= money(mostExpensive.soldPrice) %></p>
+                <% } else { %><p>—</p><% } %>
             </div>
             <div class="insight-card">
-                <h4>Best Value Buy</h4>
-                <% if (bestValuePlayer) { %>
-                    <p><%= bestValuePlayer.name %></p>
-                    <p class="insight-value"><%= bestValuePlayer.valuePercent %>% of base</p>
-                <% } else { %>
-                    <p>-</p>
-                <% } %>
-            </div>
-            <div class="insight-card">
-                <h4>Recommended Budget</h4>
-                <p>Per Remaining Player</p>
-                <p class="insight-value">₹<%= recommendedBudget.toLocaleString('en-IN') %></p>
+                <h4>Budget per remaining slot</h4>
+                <p>Until the minimum squad</p>
+                <p class="insight-value"><%= slotsToMinimum ? money(perSlotBudget) : '—' %></p>
             </div>
         </div>
     </div>

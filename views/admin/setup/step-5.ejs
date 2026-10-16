@@ -1,0 +1,72 @@
+<h2 class="setup-card-title"><i class="fa-solid fa-shield-halved"></i> Teams &amp; owners</h2>
+<p class="setup-help">
+    Give each team a name, colour and logo, and add its owner.
+    If the owner also plays, they join the squad automatically and fill one of the <%= tournament.squad.max %> slots<% if (tournament.ownerPlayerPrice > 0) { %>, costing <%= money(tournament.ownerPlayerPrice) %> from the purse<% } %>.
+</p>
+
+<div class="team-setup-grid">
+    <% d.teams.forEach(team => { %>
+        <% const p = `teams[${team._id}]`; const owner = team.owner || {}; %>
+        <section class="team-setup-card" style="--team: <%= team.color %>" data-team-card>
+            <header class="team-setup-head">
+                <span class="team-order">#<%= team.order %></span>
+                <input type="text" name="<%= p %>[name]" class="form-control team-name-input" value="<%= team.name %>" maxlength="60" required aria-label="Team name">
+            </header>
+
+            <div class="team-setup-row">
+                <%- include('../../partials/image-field', {
+                    name: `logo_${team._id}`,
+                    label: 'Team logo',
+                    image: team.logo,
+                    preset: 'logo',
+                    removeName: `${p}[removeLogo]`,
+                    icon: 'fa-shield-halved',
+                    hint: 'Square image works best',
+                }) %>
+            </div>
+
+            <div class="form-row compact">
+                <div class="form-group">
+                    <label>Short name</label>
+                    <input type="text" name="<%= p %>[shortName]" class="form-control" value="<%= team.shortName || '' %>" maxlength="6" placeholder="e.g. RCB">
+                </div>
+                <div class="form-group">
+                    <label>Colour</label>
+                    <input type="color" name="<%= p %>[color]" class="form-control color-input" value="<%= team.color %>" data-team-color>
+                </div>
+            </div>
+
+            <div class="team-owner">
+                <h4><i class="fa-solid fa-user-tie"></i> Owner</h4>
+                <div class="form-group">
+                    <input type="text" name="<%= p %>[ownerName]" class="form-control" value="<%= owner.name || '' %>" maxlength="80" placeholder="Owner's name">
+                </div>
+                <%- include('../../partials/image-field', {
+                    name: `ownerPhoto_${team._id}`,
+                    label: 'Owner photo',
+                    image: owner.photo,
+                    preset: 'avatar',
+                    removeName: `${p}[removeOwnerPhoto]`,
+                    round: true,
+                    icon: 'fa-user',
+                }) %>
+
+                <label class="switch-line">
+                    <input type="checkbox" name="<%= p %>[ownerPlays]" data-owner-plays <%= owner.isPlaying ? 'checked' : '' %> <%= locked ? 'disabled' : '' %>>
+                    <span class="switch" aria-hidden="true"></span>
+                    Owner also plays
+                </label>
+
+                <div class="form-group owner-role" data-owner-role <%= owner.isPlaying ? '' : 'hidden' %>>
+                    <label>Owner's playing role</label>
+                    <select name="<%= p %>[ownerRole]" class="form-control">
+                        <option value="">Select role</option>
+                        <% tournament.roles.forEach(role => { %>
+                            <option value="<%= role %>" <%= owner.role === role ? 'selected' : '' %>><%= role %></option>
+                        <% }) %>
+                    </select>
+                </div>
+            </div>
+        </section>
+    <% }) %>
+</div>

@@ -1,0 +1,79 @@
+<%- include('../partials/header', { title, showNav: true, activePage: 'settings' }) %>
+
+<div class="setup-container">
+    <div class="setup-header">
+        <% if (isNew) { %>
+            <h1><i class="fa-solid fa-wand-magic-sparkles"></i> New tournament</h1>
+            <p class="page-subtitle">Answer a few questions and your auction is ready. You can change most answers later.</p>
+        <% } else if (inSetup) { %>
+            <h1><i class="fa-solid fa-wand-magic-sparkles"></i> Set up <%= tournament.name %></h1>
+            <p class="page-subtitle">Step <%= step %> of <%= steps.length %>: <%= steps[step - 1].hint %></p>
+        <% } else { %>
+            <h1><i class="fa-solid fa-sliders"></i> Tournament settings</h1>
+            <p class="page-subtitle">Edit any step; changes apply as soon as you save. <a href="/admin/settings">Back to settings</a></p>
+        <% } %>
+    </div>
+
+    <ol class="setup-stepper">
+        <% steps.forEach(s => { %>
+            <%
+                const state = s.n === step ? 'current' : (!inSetup || s.n < reachedStep) ? 'done' : 'todo';
+                const linkable = !isNew && s.n !== step && s.n <= reachedStep;
+            %>
+            <li class="setup-step is-<%= state %>">
+                <<%= linkable ? 'a' : 'span' %> class="setup-step-link" <%- linkable ? `href="/admin/setup/${s.n}"` : '' %>>
+                    <span class="setup-step-num"><% if (state === 'done') { %><i class="fa-solid fa-check"></i><% } else { %><%= s.n %><% } %></span>
+                    <span class="setup-step-text"><strong><%= s.title %></strong><small><%= s.hint %></small></span>
+                </<%= linkable ? 'a' : 'span' %>>
+            </li>
+        <% }) %>
+    </ol>
+
+    <% if (errors.length) { %>
+        <div class="alert alert-error" role="alert">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <div>
+                <strong>Please fix the following:</strong>
+                <ul class="error-list"><% errors.forEach(e => { %><li><%= e %></li><% }) %></ul>
+            </div>
+        </div>
+    <% } %>
+
+    <% if (locked && [2, 3, 4, 5].includes(step)) { %>
+        <div class="alert alert-warning">
+            <i class="fa-solid fa-lock"></i>
+            <span>The auction has started, so settings that would change purses or squads are locked. Names, colours, logos and bid increments can still be edited. To unlock everything, reset the auction in Settings.</span>
+        </div>
+    <% } %>
+
+    <form method="POST"
+          action="<%= isNew ? '/admin/tournaments/new' : `/admin/setup/${step}` %>"
+          enctype="multipart/form-data"
+          class="setup-card glass-card-static"
+          id="setupForm">
+        <%- include(`setup/step-${step}`) %>
+
+        <div class="setup-actions">
+            <% if (isNew) { %>
+                <a class="btn btn-secondary" href="/admin/tournaments">Cancel</a>
+            <% } else if (step > 1) { %>
+                <a class="btn btn-secondary" href="/admin/setup/<%= step - 1 %>"><i class="fa-solid fa-arrow-left"></i> Back</a>
+            <% } else { %>
+                <span></span>
+            <% } %>
+
+            <% if (locked && step === 2) { %>
+                <% if (inSetup) { %><a class="btn btn-primary btn-lg" href="/admin/setup/3">Continue <i class="fa-solid fa-arrow-right"></i></a><% } %>
+            <% } else if (!inSetup) { %>
+                <button type="submit" class="btn btn-primary btn-lg"><i class="fa-solid fa-floppy-disk"></i> Save changes</button>
+            <% } else if (step === steps.length) { %>
+                <button type="submit" class="btn btn-success btn-lg"><i class="fa-solid fa-flag-checkered"></i> Finish setup</button>
+            <% } else { %>
+                <button type="submit" class="btn btn-primary btn-lg">Save &amp; continue <i class="fa-solid fa-arrow-right"></i></button>
+            <% } %>
+        </div>
+    </form>
+</div>
+
+<script src="/js/setup.js"></script>
+<%- include('../partials/footer') %>

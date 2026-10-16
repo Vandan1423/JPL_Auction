@@ -1,0 +1,31 @@
+<h2 class="setup-card-title"><i class="fa-solid fa-layer-group"></i> Categories &amp; base prices</h2>
+<p class="setup-help">
+    Group players by quality. A player's category sets their <strong>base price</strong>, which is the opening bid.
+    <% if (!tournament.categories.length) { %>We've suggested three categories based on your purse; change them freely.<% } %>
+</p>
+
+<div class="category-rows" data-category-rows data-next="<%= d.categories.length %>">
+    <% d.categories.forEach((c, i) => { %>
+        <%- include('../../partials/setup-category-row', { c, i, locked }) %>
+    <% }) %>
+</div>
+
+<% if (!locked) { %>
+    <button type="button" class="btn btn-secondary btn-sm" data-add-category><i class="fa-solid fa-plus"></i> Add category</button>
+    <template id="categoryRowTemplate">
+        <%- include('../../partials/setup-category-row', { c: { color: categoryColors[d.categories.length % categoryColors.length], increments: [] }, i: '__i__', locked: false }) %>
+    </template>
+<% } %>
+
+<h2 class="setup-card-title spaced"><i class="fa-solid fa-arrow-trend-up"></i> Bid increments</h2>
+<p class="setup-help">
+    How much each new bid adds, depending on how high the bidding already is. The opening bid is always the base price;
+    increments only apply from the second bid. A category can override these in its own settings above.
+</p>
+
+<%- include('../../partials/setup-slab-table', { prefix: 'bidIncrements', slabs: d.bidIncrements.length ? d.bidIncrements : [{ from: 0, step: '' }] }) %>
+
+<div class="slab-example" data-slab-example>
+    <span class="muted">Example bidding from the lowest base price:</span>
+    <span data-slab-example-text>—</span>
+</div>

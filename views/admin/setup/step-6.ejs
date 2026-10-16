@@ -1,0 +1,82 @@
+<h2 class="setup-card-title"><i class="fa-solid fa-rotate"></i> When nobody bids on a player</h2>
+<div class="option-cards">
+    <% Object.entries(unsoldPolicies).forEach(([key, text]) => { %>
+        <label class="option-card">
+            <input type="radio" name="unsoldPolicy" value="<%= key %>" <%= d.unsoldPolicy === key ? 'checked' : '' %>>
+            <span><%= text %></span>
+        </label>
+    <% }) %>
+</div>
+<p class="form-text form-text-block">Unsold players can always be put up again later from the control panel.</p>
+
+<h2 class="setup-card-title spaced"><i class="fa-solid fa-clipboard-check"></i> Review</h2>
+
+<div class="review-grid">
+    <section class="review-block">
+        <h3>Tournament <a href="/admin/setup/1">Edit</a></h3>
+        <p><strong><%= tournament.name %></strong><%= tournament.season ? ` · ${tournament.season}` : '' %></p>
+        <p class="muted"><%= [tournament.venue, tournament.auctionDate ? tournament.auctionDate.toDateString() : ''].filter(Boolean).join(' · ') || 'No venue or date' %></p>
+    </section>
+
+    <section class="review-block">
+        <h3>Squad &amp; purse <a href="/admin/setup/2">Edit</a></h3>
+        <ul class="review-list">
+            <li><%= tournament.teamCount %> teams</li>
+            <li>Squad of <%= tournament.squad.min === tournament.squad.max ? tournament.squad.max : `${tournament.squad.min}–${tournament.squad.max}` %> players</li>
+            <li><%= money(tournament.purse) %> purse per team</li>
+            <% if (tournament.maxBidPerPlayer) { %><li>Max <%= money(tournament.maxBidPerPlayer) %> for one player</li><% } %>
+            <li>Playing owner costs <%= tournament.ownerPlayerPrice ? money(tournament.ownerPlayerPrice) : 'nothing' %></li>
+        </ul>
+    </section>
+
+    <section class="review-block review-wide">
+        <h3>Categories &amp; increments <a href="/admin/setup/3">Edit</a></h3>
+        <table class="review-table">
+            <thead><tr><th>Category</th><th>Base price</th><th>Max per team</th><th>Increments</th></tr></thead>
+            <tbody>
+                <% tournament.categories.forEach(c => { %>
+                    <% const slabs = c.increments.length ? c.increments : tournament.bidIncrements; %>
+                    <tr>
+                        <td><%- categoryBadge(c._id) %></td>
+                        <td><%= money(c.basePrice) %></td>
+                        <td><%= c.maxPerTeam ?? 'No limit' %></td>
+                        <td class="muted"><%= slabs.map(s => `+${money(s.step)}${s.from ? ` from ${money(s.from)}` : ''}`).join(', ') %><%= c.increments.length ? ' (own)' : '' %></td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="review-block">
+        <h3>Player form <a href="/admin/setup/4">Edit</a></h3>
+        <p><%= tournament.roles.join(', ') %></p>
+        <% if (tournament.roleRequirements.length) { %>
+            <p class="muted">Every team needs: <%= tournament.roleRequirements.map(r => `${r.min} × ${r.role}`).join(', ') %></p>
+        <% } %>
+    </section>
+
+    <section class="review-block review-wide">
+        <h3>Teams <a href="/admin/setup/5">Edit</a></h3>
+        <div class="review-teams">
+            <% reviewTeams.forEach(team => { %>
+                <div class="review-team" style="--team: <%= team.color %>">
+                    <% if (team.logo && team.logo.url) { %><img src="<%= img(team.logo, 'logoSm') %>" alt=""><% } else { %><span class="team-dot"></span><% } %>
+                    <div>
+                        <strong><%= team.name %></strong>
+                        <small class="muted"><%= team.owner && team.owner.name ? `${team.owner.name}${team.owner.isPlaying ? ' · plays' : ''}` : 'No owner yet' %></small>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    </section>
+</div>
+
+<% if (inSetup) { %>
+    <div class="info-callout">
+        <i class="fa-solid fa-route"></i>
+        <div>
+            <strong>After you finish:</strong> add players (one by one or in bulk), arrange the auction order, open the live display on the projector, then start the auction from the control panel.
+            <% if (playerCount) { %><br><%= playerCount %> players are already registered.<% } %>
+        </div>
+    </div>
+<% } %>

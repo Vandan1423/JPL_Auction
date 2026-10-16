@@ -445,21 +445,8 @@ body::after {
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.category-badge.cat-A {
-    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-    color: #1f2937;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
 
-.category-badge.cat-B {
-    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
-    color: #fff;
-}
 
-.category-badge.cat-C {
-    background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%);
-    color: #fff;
-}
 
 .player-display-base {
     font-size: 1.1rem;
@@ -924,9 +911,6 @@ body::after {
   border:1px solid var(--border);background:var(--bg-surface);color:var(--text-dim);
 }
 .tag--type{color:var(--accent);border-color:rgba(99,102,241,.25);background:rgba(99,102,241,.08);}
-.tag--cat-A{color:#f5c842;border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.08);}
-.tag--cat-B{color:#94a3b8;border-color:rgba(148,163,184,.3);background:rgba(148,163,184,.08);}
-.tag--cat-C{color:#fb923c;border-color:rgba(251,146,60,.3);background:rgba(251,146,60,.08);}
 
 /* Base Price */
 .player-panel__base{display:flex;flex-direction:column;gap:.15rem;margin-top:.5rem;}
@@ -1489,3 +1473,84 @@ body::after {
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:rgba(99,102,241,.3);border-radius:3px;}
 ::-webkit-scrollbar-thumb:hover{background:rgba(99,102,241,.5);}
+
+/* ═══════════════ AUCTION HUB: any tournament ═══════════════ */
+/* Team grid sized by display.js for 2–20 teams. */
+.teams-grid {
+  grid-template-columns: repeat(var(--cols, 4), 1fr);
+  grid-template-rows: repeat(var(--rows, 2), 1fr);
+}
+.teams-grid .team-card { min-height: 0; }
+.team-card__stats { flex-wrap: wrap; }
+
+.tournament-title-wrap { display: flex; flex-direction: column; line-height: 1.1; }
+.tournament-season {
+  font-size: 0.85rem; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.player-category-badge {
+  --cat: #f59e0b;
+  display: inline-flex; align-items: center; padding: 0.4rem 1rem; margin-right: 0.5rem;
+  border-radius: 25px; font-size: 0.75rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+  color: #fff; background: var(--cat);
+  box-shadow: 0 4px 15px color-mix(in srgb, var(--cat) 45%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.bidder-logo {
+  width: 45px; height: 45px; object-fit: contain; margin-right: 10px; vertical-align: middle;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Tournament picker at /display */
+.display-index { overflow-y: auto; min-height: 100vh; }
+.display-index-main { padding: 3rem 2rem; text-align: center; }
+.display-index-main h2 { font-size: 2rem; margin-bottom: 2rem; }
+.display-index-grid {
+  display: grid; gap: 1.5rem; max-width: 1000px; margin: 0 auto;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.display-index-card {
+  display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 2rem 1.5rem;
+  border-radius: 20px; text-decoration: none; color: #fff;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.display-index-card:hover { transform: translateY(-4px); background: rgba(255, 255, 255, 0.1); }
+.display-index-card img { width: 96px; height: 96px; object-fit: contain; }
+.display-index-card strong { font-size: 1.2rem; }
+.display-index-card span { color: rgba(255, 255, 255, 0.6); }
+
+@media (max-width: 768px) {
+  .teams-grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: none; grid-auto-rows: auto; }
+  body { overflow-y: auto; }
+}
+
+/* Player without a photo: keep the layout with a large initial. */
+.player-image-container.is-placeholder { display: flex; align-items: center; justify-content: center; }
+.player-image-placeholder {
+  position: relative; z-index: 4; font-size: 7rem; font-weight: 900; color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* Smaller screens (laptops, TVs at 720p): stay side by side instead of
+   stacking, which overflowed and clipped the player's name. */
+@media (max-width: 1200px) {
+  .player-display {
+    grid-template-columns: 160px 1fr minmax(240px, 320px);
+    grid-template-rows: auto; gap: 1.5rem; text-align: left; padding: 0;
+  }
+  .player-image-container { width: 160px; height: 190px; justify-self: stretch; }
+  .player-display-left { align-items: flex-start; text-align: left; padding: 0; }
+  .player-display-info { justify-content: flex-start; flex-wrap: wrap; }
+  .player-display-name { font-size: 2.4rem; }
+  .bid-display-amount { font-size: 2.8rem; }
+  .player-image-placeholder { font-size: 5rem; }
+}
+@media (max-width: 768px) {
+  .player-display { grid-template-columns: 1fr; text-align: center; }
+  .player-image-container { width: 140px; height: 160px; justify-self: center; }
+  .player-display-left { align-items: center; text-align: center; }
+  .player-display-info { justify-content: center; }
+  .current-player-section { overflow: visible; }
+}

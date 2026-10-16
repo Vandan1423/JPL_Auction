@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title || 'Auction Hub' %></title>
+    <title><%= typeof title !== 'undefined' && title ? `${title} · ${appName}` : appName %></title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,33 +16,59 @@
     <!-- Styles -->
     <link rel="stylesheet" href="/css/admin.css">
     <link rel="stylesheet" href="/css/admin-animations.css">
+    <link rel="stylesheet" href="/css/app.css">
 
     <!-- Socket.IO + Confetti -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <% if (tournament) { %>
+    <script>
+        window.AUCTION_CONFIG = <%- json({
+            tournamentId: String(tournament._id),
+            slug: tournament.slug,
+            currency: { symbol: currency.symbol, suffix: currency.suffix || '', locale: currency.locale },
+        }) %>;
+    </script>
+    <% } %>
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to content</a>
 
     <% if (typeof showNav !== 'undefined' && showNav) { %>
+    <% const active = typeof activePage !== 'undefined' ? activePage : ''; %>
     <nav class="admin-nav">
         <div class="nav-container">
-            <div class="nav-brand">
-                <img src="/images/logo.svg" alt="Auction Hub logo" class="nav-logo">
-                <h2>Auction Hub</h2>
-            </div>
+            <a class="nav-brand" href="/admin/tournaments" title="Switch tournament">
+                <% if (tournament && tournament.logo && tournament.logo.url) { %>
+                    <img src="<%= img(tournament.logo, 'logoSm') %>" alt="" class="nav-logo">
+                <% } else { %>
+                    <img src="/images/logo.svg" alt="" class="nav-logo">
+                <% } %>
+                <span class="nav-brand-text">
+                    <h2><%= tournament ? tournament.name : appName %></h2>
+                    <% if (tournament) { %>
+                        <span class="nav-brand-sub"><%= tournament.season ? tournament.season + ' · ' : '' %><i class="fa-solid fa-arrow-right-arrow-left"></i> Switch</span>
+                    <% } %>
+                </span>
+            </a>
 
             <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
                 <i class="fa-solid fa-bars"></i>
             </button>
 
             <ul class="nav-menu" id="navMenu">
-                <li><a href="/admin/dashboard" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'dashboard' ? 'active' : '' %>"><i class="fa-solid fa-gauge-high"></i> Dashboard</a></li>
-                <li><a href="/admin/players" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'players' ? 'active' : '' %>"><i class="fa-solid fa-users"></i> Players</a></li>
-                <li><a href="/admin/teams" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'teams' ? 'active' : '' %>"><i class="fa-solid fa-shield-halved"></i> Teams</a></li>
-                <li><a href="/admin/auction" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'auction' ? 'active' : '' %>"><i class="fa-solid fa-gavel"></i> Auction</a></li>
-                <li><a href="/admin/reports" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'reports' ? 'active' : '' %>"><i class="fa-solid fa-chart-column"></i> Reports</a></li>
-                <li><a href="/admin/settings" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'settings' ? 'active' : '' %>"><i class="fa-solid fa-gear"></i> Settings</a></li>
+                <% if (tournament && tournament.status !== 'setup') { %>
+                    <li><a href="/admin/dashboard" class="nav-link <%= active === 'dashboard' ? 'active' : '' %>"><i class="fa-solid fa-gauge-high"></i> Dashboard</a></li>
+                    <li><a href="/admin/players" class="nav-link <%= active === 'players' ? 'active' : '' %>"><i class="fa-solid fa-users"></i> Players</a></li>
+                    <li><a href="/admin/teams" class="nav-link <%= active === 'teams' ? 'active' : '' %>"><i class="fa-solid fa-shield-halved"></i> Teams</a></li>
+                    <li><a href="/auction/control" class="nav-link <%= active === 'auction' ? 'active' : '' %>"><i class="fa-solid fa-gavel"></i> Auction</a></li>
+                    <li><a href="/admin/reports" class="nav-link <%= active === 'reports' ? 'active' : '' %>"><i class="fa-solid fa-chart-column"></i> Reports</a></li>
+                    <li><a href="/admin/settings" class="nav-link <%= active === 'settings' ? 'active' : '' %>"><i class="fa-solid fa-gear"></i> Settings</a></li>
+                <% } else if (tournament) { %>
+                    <li><a href="/admin/setup" class="nav-link active"><i class="fa-solid fa-wand-magic-sparkles"></i> Setup</a></li>
+                <% } %>
+                <li><a href="/admin/tournaments" class="nav-link <%= active === 'tournaments' ? 'active' : '' %>"><i class="fa-solid fa-trophy"></i> Tournaments</a></li>
                 <li>
                     <form action="/admin/logout" method="POST" style="display: inline;">
                         <button type="submit" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
@@ -53,3 +79,10 @@
     </nav>
     <% } %>
     <main class="main-content" id="main-content">
+    <% const flash = takeFlash(); %>
+    <% if (flash.success) { %>
+        <div class="alert alert-success flash-message"><i class="fa-solid fa-circle-check"></i> <span><%= flash.success %></span></div>
+    <% } %>
+    <% if (flash.error) { %>
+        <div class="alert alert-error flash-message"><i class="fa-solid fa-circle-exclamation"></i> <span><%= flash.error %></span></div>
+    <% } %>

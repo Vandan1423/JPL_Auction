@@ -1,0 +1,54 @@
+<h2 class="setup-card-title"><i class="fa-solid fa-wallet"></i> Squad size &amp; purse</h2>
+<p class="setup-help">Every team gets the same purse. A team is "full" at the maximum squad size and must reach at least the minimum.</p>
+
+<fieldset class="plain-fieldset" <%= locked ? 'disabled' : '' %>>
+    <div class="form-row three">
+        <div class="form-group">
+            <label for="teamCount">Number of teams <span class="required">*</span></label>
+            <input type="number" id="teamCount" name="teamCount" class="form-control" value="<%= d.teamCount %>" min="<%= limits.minTeams %>" max="<%= limits.maxTeams %>" required>
+        </div>
+        <div class="form-group">
+            <label for="squadMin">Minimum squad size <span class="required">*</span></label>
+            <input type="number" id="squadMin" name="squadMin" class="form-control" value="<%= d.squadMin %>" min="1" max="<%= limits.maxSquad %>" required>
+        </div>
+        <div class="form-group">
+            <label for="squadMax">Maximum squad size <span class="required">*</span></label>
+            <input type="number" id="squadMax" name="squadMax" class="form-control" value="<%= d.squadMax %>" min="1" max="<%= limits.maxSquad %>" required>
+        </div>
+    </div>
+    <p class="form-text form-text-block"><i class="fa-solid fa-circle-info"></i> Squad sizes include a playing owner. For a fixed squad (e.g. 11 players each), enter the same number twice.</p>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="purse">Purse per team <span class="required">*</span></label>
+            <div class="input-affix"><span><%= currencyLabel %></span>
+                <input type="number" id="purse" name="purse" class="form-control" value="<%= d.purse %>" min="1" step="1" required data-money-preview>
+            </div>
+            <small class="form-text" data-money-preview-for="purse"></small>
+        </div>
+        <div class="form-group">
+            <label for="maxBidPerPlayer">Highest bid allowed for one player</label>
+            <div class="input-affix"><span><%= currencyLabel %></span>
+                <input type="number" id="maxBidPerPlayer" name="maxBidPerPlayer" class="form-control" value="<%= d.maxBidPerPlayer %>" min="1" step="1" placeholder="No limit" data-money-preview>
+            </div>
+            <small class="form-text">Optional. Leave blank to only limit bids by purse protection.</small>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="ownerPlayerPrice">Price for an owner who also plays</label>
+        <div class="input-affix narrow"><span><%= currencyLabel %></span>
+            <input type="number" id="ownerPlayerPrice" name="ownerPlayerPrice" class="form-control" value="<%= d.ownerPlayerPrice %>" min="0" step="1">
+        </div>
+        <small class="form-text">Taken from the team's purse when its owner plays. Use 0 if playing owners are free.</small>
+    </div>
+</fieldset>
+
+<div class="info-callout">
+    <i class="fa-solid fa-shield-halved"></i>
+    <div>
+        <strong>Purse protection is automatic.</strong>
+        A team can never bid so much that it can't afford the rest of its minimum squad at base prices.
+        The control panel shows each team's maximum bid live.
+    </div>
+</div>

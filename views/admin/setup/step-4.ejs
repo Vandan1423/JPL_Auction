@@ -1,0 +1,52 @@
+<h2 class="setup-card-title"><i class="fa-solid fa-person-running"></i> Player roles</h2>
+<p class="setup-help">One role per line. These appear in the player form and on the live display.</p>
+
+<div class="form-group">
+    <textarea name="roles" id="roles" class="form-control" rows="6" data-roles-input><%= d.roles.join('\n') %></textarea>
+</div>
+
+<h2 class="setup-card-title spaced"><i class="fa-solid fa-list-check"></i> Role requirements <span class="optional-tag">optional</span></h2>
+<p class="setup-help">
+    For example, "every team needs at least 1 Wicket-Keeper". Once a team's remaining squad slots are all needed for missing
+    roles, it can only bid on players with those roles.
+</p>
+
+<div class="requirement-editor" data-requirement-editor data-next="<%= d.roleRequirements.length %>">
+    <table class="slab-table">
+        <thead><tr><th>Role</th><th>At least</th><th aria-label="Remove"></th></tr></thead>
+        <tbody>
+            <% d.roleRequirements.forEach((r, i) => { %>
+                <tr data-row>
+                    <td><input type="text" name="roleRequirements[<%= i %>][role]" class="form-control form-control-sm" value="<%= r.role %>" list="roleOptions" <%= locked ? 'readonly' : '' %>></td>
+                    <td><input type="number" name="roleRequirements[<%= i %>][min]" class="form-control form-control-sm" value="<%= r.min %>" min="1" <%= locked ? 'readonly' : '' %>></td>
+                    <td><% if (!locked) { %><button type="button" class="btn-icon-only btn-ghost" data-remove-row title="Remove"><i class="fa-solid fa-xmark"></i></button><% } %></td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+    <% if (!locked) { %>
+        <button type="button" class="btn btn-ghost btn-sm" data-add-requirement><i class="fa-solid fa-plus"></i> Add requirement</button>
+    <% } %>
+    <datalist id="roleOptions">
+        <% d.roles.forEach(r => { %><option value="<%= r %>"></option><% }) %>
+    </datalist>
+</div>
+
+<h2 class="setup-card-title spaced"><i class="fa-solid fa-id-card"></i> Registration fields</h2>
+<p class="setup-help">Name, role, category and photo are always on the player form. Choose what else to collect.</p>
+
+<table class="field-mode-table">
+    <thead>
+        <tr><th>Field</th><% fieldModes.forEach(m => { %><th><%= m.charAt(0).toUpperCase() + m.slice(1) %></th><% }) %></tr>
+    </thead>
+    <tbody>
+        <% Object.entries(playerFieldLabels).forEach(([key, label]) => { %>
+            <tr>
+                <td><%= label %></td>
+                <% fieldModes.forEach(m => { %>
+                    <td><input type="radio" name="playerFields[<%= key %>]" value="<%= m %>" aria-label="<%= label %> <%= m %>" <%= (d.playerFields[key] || 'optional') === m ? 'checked' : '' %>></td>
+                <% }) %>
+            </tr>
+        <% }) %>
+    </tbody>
+</table>

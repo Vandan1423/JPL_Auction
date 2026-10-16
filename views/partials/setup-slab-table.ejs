@@ -1,0 +1,34 @@
+<%#
+    Bid increment slabs. Params: prefix (field name prefix), slabs ([{from, step}])
+%>
+<div class="slab-editor" data-slab-editor data-prefix="<%= prefix %>" data-next="<%= slabs.length %>">
+    <table class="slab-table">
+        <thead>
+            <tr>
+                <th>When the current bid is at least</th>
+                <th>Each new bid adds</th>
+                <th aria-label="Remove"></th>
+            </tr>
+        </thead>
+        <tbody>
+            <% slabs.forEach((s, j) => { %>
+                <tr data-row>
+                    <td>
+                        <div class="input-affix"><span><%= locals.currencyLabel || '' %></span>
+                            <input type="number" name="<%= prefix %>[<%= j %>][from]" class="form-control form-control-sm" value="<%= s.from ?? '' %>" min="0" step="1" <%= j === 0 ? 'readonly' : '' %>>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="input-affix"><span>+</span>
+                            <input type="number" name="<%= prefix %>[<%= j %>][step]" class="form-control form-control-sm" value="<%= s.step ?? '' %>" min="1" step="1" placeholder="e.g. 1000">
+                        </div>
+                    </td>
+                    <td>
+                        <% if (j > 0) { %><button type="button" class="btn-icon-only btn-ghost" data-remove-row title="Remove"><i class="fa-solid fa-xmark"></i></button><% } %>
+                    </td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+    <button type="button" class="btn btn-ghost btn-sm" data-add-slab><i class="fa-solid fa-plus"></i> Add a price band</button>
+</div>

@@ -1,0 +1,40 @@
+<%#
+    One category row in setup step 3. `i` is the row index (or "__i__" in the
+    template), `c` the category, `locked` whether price/limit are frozen.
+%>
+<% const prefix = `categories[${i}]`; const hasCustom = c.increments && c.increments.length > 0; %>
+<div class="category-row" data-row>
+    <input type="hidden" name="<%= prefix %>[id]" value="<%= c._id || '' %>">
+    <div class="category-row-main">
+        <label class="color-swatch" title="Badge colour">
+            <input type="color" name="<%= prefix %>[color]" value="<%= c.color || '#6366F1' %>">
+        </label>
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" name="<%= prefix %>[name]" class="form-control" value="<%= c.name || '' %>" placeholder="e.g. A, Gold, Icon" maxlength="30" required>
+        </div>
+        <div class="form-group">
+            <label>Base price <span class="required">*</span></label>
+            <div class="input-affix">
+                <span><%= locals.currencyLabel || "" %></span>
+                <input type="number" name="<%= prefix %>[basePrice]" class="form-control" value="<%= c.basePrice ?? '' %>" min="1" step="1" required <%= locked && c._id ? 'readonly' : '' %> data-base-price>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Max per team</label>
+            <input type="number" name="<%= prefix %>[maxPerTeam]" class="form-control" value="<%= c.maxPerTeam ?? '' %>" min="0" step="1" placeholder="No limit" <%= locked && c._id ? 'readonly' : '' %>>
+        </div>
+        <% if (!locked) { %>
+            <button type="button" class="btn-icon-only btn-ghost remove-row" data-remove-row title="Remove category"><i class="fa-solid fa-trash"></i></button>
+        <% } %>
+    </div>
+    <div class="category-increments">
+        <label class="checkbox-line">
+            <input type="checkbox" name="<%= prefix %>[customIncrements]" data-toggle-custom <%= hasCustom ? 'checked' : '' %>>
+            This category uses its own bid increments
+        </label>
+        <div class="custom-slabs" <%= hasCustom ? '' : 'hidden' %>>
+            <%- include('setup-slab-table', { prefix: `${prefix}[slabs]`, slabs: hasCustom ? c.increments : [{ from: 0, step: '' }] }) %>
+        </div>
+    </div>
+</div>

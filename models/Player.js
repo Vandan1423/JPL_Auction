@@ -1,87 +1,53 @@
 import mongoose from 'mongoose';
+import { imageSchema } from './Tournament.js';
 
 const { Schema, model } = mongoose;
 
-const CATEGORY_BASE_PRICE = {
-	A: 75000,
-	B: 30000,
-	C: 10000,
-};
+// Status lifecycle:
+//   available → never put under the hammer yet
+//   unsold    → went under the hammer with no bids; still in the pool for re-auction
+//   sold      → bought by `soldTo` for `soldPrice` (playing owners start here)
+//   withdrawn → pulled out of the auction
+const playerSchema = new Schema(
+	{
+		tournament: { type: Schema.Types.ObjectId, ref: 'Tournament', required: true, index: true },
+		// Per-tournament registration number. Owners don't get one.
+		playerNumber: { type: Number, default: null },
+		name: { type: String, required: true, trim: true, maxlength: 80 },
+		phone: { type: String, trim: true, default: '' },
+		role: { type: String, trim: true, default: '' },
+		// _id of an entry in tournament.categories (null only for owners).
+		category: { type: Schema.Types.ObjectId, default: null },
+		// Category before any unsold move-downs; restored when the auction is reset.
+		originalCategory: { type: Schema.Types.ObjectId, default: null },
+		jerseySize: { type: String, trim: true, default: '' },
+		jerseyNumber: { type: String, trim: true, maxlength: 4, default: '' },
+		age: { type: Number, min: 5, max: 90, default: null },
+		photo: { type: imageSchema, default: undefined },
 
-const PLAYER_TYPES = [
-	'Batsman',
-	'Bowler',
-	'Batting All Rounder',
-	'Bowling All Rounder',
-	'Wicket Keeper Batsman',
-];
+		// True for a team owner who also plays; never auctioned.
+		isOwner: { type: Boolean, default: false },
 
-const playerSchema = new Schema({
-	name: { type: String, required: true, trim: true },
-	phoneNumber: {
-		type: String,
-		required: true,
-		match: /^\d{10}$/,
+		status: {
+			type: String,
+			enum: ['available', 'unsold', 'sold', 'withdrawn'],
+			default: 'available',
+		},
+		soldTo: { type: Schema.Types.ObjectId, ref: 'Team', default: null },
+		soldPrice: { type: Number, default: 0 },
+		soldAt: { type: Date, default: null },
+		timesUnsold: { type: Number, default: 0 },
+		auctionOrder: { type: Number, default: 0 },
 	},
-	jerseySize: {
-		type: String,
-		enum: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'],
-		required: true,
-	},
-	playerType: {
-		type: String,
-		required: true,
-		enum: PLAYER_TYPES,
-	},
-	category: {
-		type: String,
-		required: true,
-		enum: ['A', 'B', 'C'],
-	},
-	imageUrl: {
-		type: String,
-		trim: true,
-		default: null,
-	},
-	age: { type: Number, min: 14, max: 80 },
-	basePrice: { type: Number },
-	currentPrice: { type: Number },
-	status: {
-		type: String,
-		enum: ['unsold', 'sold', 'withdrawn'],
-		default: 'unsold',
-	},
-	soldTo: { type: Schema.Types.ObjectId, ref: 'Team', default: null },
-	soldPrice: { type: Number, default: 0 },
-	playerNumber: { type: Number, unique: true },
-	auctionOrder: { type: Number, default: 0 },
-	registrationDate: { type: Date, default: Date.now },
-	createdAt: { type: Date, default: Date.now },
-});
+	{ timestamps: true }
+);
 
-playerSchema.pre('save', async function setDerivedFields(next) {
-	if (this.isModified('category') || this.isNew) {
-		this.basePrice = CATEGORY_BASE_PRICE[this.category];
-	}
-
-	if (!this.currentPrice) {
-		this.currentPrice = this.basePrice;
-	}
-
-	if (this.isNew && !this.playerNumber) {
-		const lastPlayer = await this.constructor
-			.findOne()
-			.sort({ playerNumber: -1 })
-			.select('playerNumber')
-			.lean();
-
-		this.playerNumber = lastPlayer?.playerNumber
-			? lastPlayer.playerNumber + 1
-			: 1;
-	}
-
-	next();
-});
+playerSchema.index(
+	{ tournament: 1, playerNumber: 1 },
+	{ unique: true, partialFilterExpression: { isOwner: false } }
+);
+playerSchema.index({ tournament: 1, status: 1, auctionOrder: 1 });
+playerSchema.index({ tournament: 1, soldTo: 1 });
 
 const Player = model('Player', playerSchema);
 

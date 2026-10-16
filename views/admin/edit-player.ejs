@@ -1,176 +1,39 @@
-<%- include('../partials/header', {title: 'Edit Player', showNav: true, activePage: 'players'}) %>
+<%- include('../partials/header', { title, showNav: true, activePage: 'players' }) %>
 
-<div class="form-container">
+<% const statusLabels = { available: 'Not auctioned yet', unsold: 'Unsold', sold: 'Sold', withdrawn: 'Withdrawn' }; %>
+
+<div class="form-container wide">
     <div class="form-header">
-        <h1><i class="fa-solid fa-user-pen"></i> Edit Player</h1>
-        <p>Update player details</p>
+        <h1><i class="fa-solid fa-user-pen"></i> Edit player</h1>
+        <p>#<%= player.playerNumber %> · <span class="status-badge status-<%= player.status %>"><%= statusLabels[player.status] %></span></p>
     </div>
 
-    <% if (typeof success !== 'undefined' && success) { %>
-        <div class="alert alert-success">
-            <i class="fa-solid fa-circle-check"></i> <%= success %>
+    <% if (errors.length) { %>
+        <div class="alert alert-error" role="alert">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <div><strong>Please fix:</strong><ul class="error-list"><% errors.forEach(e => { %><li><%= e %></li><% }) %></ul></div>
         </div>
     <% } %>
 
-    <% if (typeof error !== 'undefined' && error) { %>
-        <div class="alert alert-error">
-            <i class="fa-solid fa-circle-exclamation"></i> <%= error %>
-        </div>
-    <% } %>
-
-    <form method="POST" action="/admin/players/edit/<%= player._id %>" class="player-form" id="editPlayerForm">
-        <div class="player-info-box">
-            <p><strong>Player Number:</strong> #<%= player.playerNumber %></p>
-            <p><strong>Current Status:</strong> 
-                <span class="status-badge status-<%= player.status %>"><%= player.status %></span>
-            </p>
-            <% if (player.status === 'sold') { %>
-                <p class="warning-text"><i class="fa-solid fa-triangle-exclamation"></i> This player is sold. Category cannot be changed.</p>
-            <% } %>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="name">Player Name <span class="required">*</span></label>
-                <input 
-                    type="text" 
-                    id="name" 
-                    name="name" 
-                    class="form-control"
-                    value="<%= player.name %>"
-                    required
-                    autofocus
-                    placeholder="Enter full name"
-                >
-            </div>
-
-            <div class="form-group">
-                <label for="phoneNumber">Phone Number <span class="required">*</span></label>
-                <input 
-                    type="tel" 
-                    id="phoneNumber" 
-                    name="phoneNumber" 
-                    class="form-control"
-                    value="<%= player.phoneNumber %>"
-                    required
-                    pattern="[0-9]{10}"
-                    maxlength="10"
-                    placeholder="10 digit mobile number"
-                >
-                <small class="form-text">Enter 10 digit number without +91</small>
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="jerseySize">Jersey Size <span class="required">*</span></label>
-                <select id="jerseySize" name="jerseySize" class="form-control" required>
-                    <option value="">Select Size</option>
-                    <option value="S" <%= player.jerseySize === 'S' ? 'selected' : '' %>>S - Small</option>
-                    <option value="M" <%= player.jerseySize === 'M' ? 'selected' : '' %>>M - Medium</option>
-                    <option value="L" <%= player.jerseySize === 'L' ? 'selected' : '' %>>L - Large</option>
-                    <option value="XL" <%= player.jerseySize === 'XL' ? 'selected' : '' %>>XL - Extra Large</option>
-                    <option value="XXL" <%= player.jerseySize === 'XXL' ? 'selected' : '' %>>XXL - Double XL</option>
-                    <option value="XXXL" <%= player.jerseySize === 'XXXL' ? 'selected' : '' %>>XXXL - Triple XL</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="playerType">Player Type <span class="required">*</span></label>
-                <select id="playerType" name="playerType" class="form-control" required>
-                    <option value="">Select Player Type</option>
-                    <option value="Batsman" <%= player.playerType === 'Batsman' ? 'selected' : '' %>>Batsman</option>
-                    <option value="Bowler" <%= player.playerType === 'Bowler' ? 'selected' : '' %>>Bowler</option>
-                    <option value="Batting All Rounder" <%= player.playerType === 'Batting All Rounder' ? 'selected' : '' %>>Batting All Rounder</option>
-                    <option value="Bowling All Rounder" <%= player.playerType === 'Bowling All Rounder' ? 'selected' : '' %>>Bowling All Rounder</option>
-                    <option value="Wicket Keeper Batsman" <%= player.playerType === 'Wicket Keeper Batsman' ? 'selected' : '' %>>Wicket Keeper Batsman</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="category">Category <span class="required">*</span></label>
-                <select 
-                    id="category" 
-                    name="category" 
-                    class="form-control" 
-                    required
-                    <%= player.status === 'sold' ? 'disabled' : '' %>
-                >
-                    <option value="">Select Category</option>
-                    <option value="A" <%= player.category === 'A' ? 'selected' : '' %>>Category A - ₹5,000 (Best Players)</option>
-                    <option value="B" <%= player.category === 'B' ? 'selected' : '' %>>Category B - ₹3,000 (Mid-Tier)</option>
-                    <option value="C" <%= player.category === 'C' ? 'selected' : '' %>>Category C - ₹2,000</option>
-                </select>
-                <% if (player.status === 'sold') { %>
-                    <input type="hidden" name="category" value="<%= player.category %>">
-                    <small class="form-text warning">Category is locked for sold players</small>
-                <% } %>
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="imageUrl">Player Image URL</label>
-                <input 
-                    type="url" 
-                    id="imageUrl" 
-                    name="imageUrl" 
-                    class="form-control"
-                    value="<%= player.imageUrl || '' %>"
-                    placeholder="https://example.com/player-image.jpg"
-                >
-                <small class="form-text">Optional: Enter direct URL to player's image</small>
-            </div>
-        </div>
-
+    <form method="POST" action="/admin/players/edit/<%= player._id %>" enctype="multipart/form-data" class="player-form" id="playerForm" data-player-form>
         <% if (player.status === 'sold' && player.soldTo) { %>
             <div class="sold-info-box">
-                <h3>Sale Information</h3>
-                <p><strong>Sold To:</strong> <%= player.soldTo.teamName %></p>
-                <p><strong>Sold Price:</strong> ₹<%= player.soldPrice.toLocaleString('en-IN') %></p>
+                <strong>Sold to <%= player.soldTo.name %></strong> for <%= money(player.soldPrice) %>
             </div>
         <% } %>
 
+        <%- include('../partials/player-form-fields', {
+            values,
+            lockCategory: player.status === 'sold',
+            existingPhoto: player.photo,
+        }) %>
+
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Update Player</button>
+            <button type="submit" class="btn btn-primary btn-lg" data-submit-label="Saving…"><i class="fa-solid fa-floppy-disk"></i> Save changes</button>
             <a href="/admin/players" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Cancel</a>
         </div>
     </form>
-
-    <div class="form-tips glass-card">
-        <h3><i class="fa-solid fa-lightbulb"></i> Edit Tips:</h3>
-        <ul>
-            <li>All fields marked with <span class="required">*</span> are mandatory</li>
-            <li>Phone numbers must be unique across all players</li>
-            <% if (player.status === 'sold') { %>
-                <li>Category cannot be changed for sold players</li>
-            <% } else { %>
-                <li>Changing category will update the base price</li>
-            <% } %>
-            <li>Player number cannot be changed</li>
-        </ul>
-    </div>
 </div>
 
-<script>
-// Phone number validation
-document.getElementById('phoneNumber').addEventListener('input', function(e) {
-    this.value = this.value.replace(/[^0-9]/g, '');
-});
-
-// Auto-dismiss success message
-window.addEventListener('DOMContentLoaded', () => {
-    const successAlert = document.querySelector('.alert-success');
-    if (successAlert) {
-        setTimeout(() => {
-            successAlert.style.display = 'none';
-        }, 3000);
-    }
-});
-</script>
-
+<script src="/js/player-form.js"></script>
 <%- include('../partials/footer') %>

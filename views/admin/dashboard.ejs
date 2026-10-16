@@ -1,123 +1,110 @@
-<%- include('../partials/header', {title: 'Admin Dashboard', showNav: true, activePage: 'dashboard'}) %>
+<%- include('../partials/header', { title, showNav: true, activePage: 'dashboard' }) %>
 
 <div class="dashboard-container">
-    <div class="dashboard-header">
+    <div class="dashboard-header page-header">
         <div>
-            <h1><i class="fa-solid fa-gauge-high"></i> Admin Dashboard</h1>
-            <p>Manage your tournament auction</p>
+            <h1><i class="fa-solid fa-gauge-high"></i> Dashboard</h1>
+            <p class="page-subtitle">
+                <%= tournament.teamCount %> teams · squad of <%= tournament.squad.min === tournament.squad.max ? tournament.squad.max : `${tournament.squad.min}–${tournament.squad.max}` %>
+                · <%= money(tournament.purse) %> purse each
+            </p>
+        </div>
+        <div class="header-actions">
+            <a class="btn btn-secondary" href="/display/<%= tournament.slug %>" target="_blank" rel="noopener"><i class="fa-solid fa-tv"></i> Live display</a>
+            <a class="btn btn-danger" href="/auction/control"><i class="fa-solid fa-gavel"></i> Auction control</a>
         </div>
     </div>
 
-    <!-- Statistics Cards -->
     <div class="stats-grid">
         <div class="stat-card stat-primary">
-            <div class="stat-icon-wrapper bg-primary">
-                <i class="fa-solid fa-users"></i>
-            </div>
-            <div class="stat-content">
-                <h3><%= totalPlayers %></h3>
-                <p>Total Players</p>
-            </div>
+            <div class="stat-icon-wrapper bg-primary"><i class="fa-solid fa-users"></i></div>
+            <div class="stat-content"><h3><%= counts.total %></h3><p>Players registered</p></div>
         </div>
-
         <div class="stat-card stat-success">
-            <div class="stat-icon-wrapper bg-success">
-                <i class="fa-solid fa-circle-check"></i>
-            </div>
-            <div class="stat-content">
-                <h3><%= soldPlayers %></h3>
-                <p>Players Sold</p>
-            </div>
+            <div class="stat-icon-wrapper bg-success"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="stat-content"><h3><%= counts.sold %></h3><p>Players sold</p></div>
         </div>
-
         <div class="stat-card stat-warning">
-            <div class="stat-icon-wrapper bg-warning">
-                <i class="fa-solid fa-clock"></i>
-            </div>
-            <div class="stat-content">
-                <h3><%= unsoldPlayers %></h3>
-                <p>Players Unsold</p>
-            </div>
+            <div class="stat-icon-wrapper bg-warning"><i class="fa-solid fa-hourglass-half"></i></div>
+            <div class="stat-content"><h3><%= counts.pool %></h3><p>Still in the pool</p></div>
         </div>
-
         <div class="stat-card stat-info">
-            <div class="stat-icon-wrapper bg-info">
-                <i class="fa-solid fa-indian-rupee-sign"></i>
-            </div>
-            <div class="stat-content">
-                <h3>₹<%= totalAuctionValue.toLocaleString('en-IN') %></h3>
-                <p>Total Value</p>
-            </div>
+            <div class="stat-icon-wrapper bg-info"><i class="fa-solid fa-sack-dollar"></i></div>
+            <div class="stat-content"><h3><%= money(totalAuctionValue) %></h3><p>Total spent<%= counts.sold ? ` · avg ${money(avgSoldPrice)}` : '' %></p></div>
         </div>
     </div>
 
-    <!-- Quick Actions -->
+    <% if (counts.total === 0) { %>
+        <div class="glass-card-static getting-started">
+            <h2><i class="fa-solid fa-route"></i> Next steps</h2>
+            <ol class="checklist">
+                <li class="done"><i class="fa-solid fa-circle-check"></i> Tournament set up</li>
+                <li><a href="/admin/players/add"><i class="fa-regular fa-circle"></i> Add players</a> one by one with photos, or <a href="/admin/players/bulk">many at once</a></li>
+                <li><a href="/admin/players/reorder"><i class="fa-regular fa-circle"></i> Arrange the auction order</a></li>
+                <li><a href="/display/<%= tournament.slug %>" target="_blank" rel="noopener"><i class="fa-regular fa-circle"></i> Open the live display</a> on the projector</li>
+                <li><a href="/auction/control"><i class="fa-regular fa-circle"></i> Start the auction</a></li>
+            </ol>
+        </div>
+    <% } %>
+
     <div class="quick-actions glass-card">
-        <h2><i class="fa-solid fa-bolt"></i> Quick Actions</h2>
+        <h2><i class="fa-solid fa-bolt"></i> Quick actions</h2>
         <div class="action-buttons">
-            <a href="/admin/players/add" class="btn btn-primary">
-                <i class="fa-solid fa-user-plus"></i> Add Player
-            </a>
-            <a href="/admin/players/bulk" class="btn btn-secondary">
-                <i class="fa-solid fa-list-check"></i> Bulk Add Players
-            </a>
-            <a href="/admin/teams/create" class="btn btn-success">
-                <i class="fa-solid fa-trophy"></i> Setup Teams
-            </a>
-            <a href="/admin/auction" class="btn btn-danger">
-                <i class="fa-solid fa-gavel"></i> Start Auction
-            </a>
+            <a href="/admin/players/add" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add player</a>
+            <a href="/admin/players/bulk" class="btn btn-secondary"><i class="fa-solid fa-list-check"></i> Bulk add</a>
+            <a href="/admin/players/reorder" class="btn btn-secondary"><i class="fa-solid fa-arrow-up-wide-short"></i> Auction order</a>
+            <a href="/admin/setup/5" class="btn btn-success"><i class="fa-solid fa-shield-halved"></i> Edit teams &amp; owners</a>
+        </div>
+        <div class="category-summary">
+            <% categoryCounts.forEach(({ category, count }) => { %>
+                <div class="category-summary-item">
+                    <%- categoryBadge(category._id) %>
+                    <span><strong><%= count %></strong> players · base <%= money(category.basePrice) %></span>
+                </div>
+            <% }) %>
         </div>
     </div>
 
-    <!-- Teams Overview -->
     <div class="teams-overview glass-card">
-        <h2><i class="fa-solid fa-shield-halved"></i> Teams Overview</h2>
-        <% if (teams && teams.length > 0) { %>
-            <div class="teams-grid">
-                <% teams.forEach(team => { %>
-                    <div class="team-card" style="border-left: 4px solid <%= team.color %>">
-                        <h3><%= team.teamName %></h3>
-                        <div class="team-stats">
-                            <p><strong>Players:</strong> <%= team.playersCount %>/9</p>
-                            <p><strong>Remaining:</strong> ₹<%= team.remainingPurse.toLocaleString('en-IN') %></p>
-                            <p><strong>Spent:</strong> ₹<%= (team.initialPurse - team.remainingPurse).toLocaleString('en-IN') %></p>
-                        </div>
-                        <a href="/admin/teams/<%= team._id %>" class="btn btn-sm"><i class="fa-solid fa-eye"></i> View Details</a>
+        <h2><i class="fa-solid fa-shield-halved"></i> Teams</h2>
+        <div class="teams-grid">
+            <% teams.forEach(team => { %>
+                <div class="team-card" style="border-left: 4px solid <%= team.color %>">
+                    <div class="team-card-row">
+                        <% if (team.logo && team.logo.url) { %><img src="<%= img(team.logo, 'logoSm') %>" alt="" class="team-mini-logo"><% } %>
+                        <h3><%= team.name %></h3>
                     </div>
-                <% }) %>
-            </div>
-        <% } else { %>
-            <p class="no-data">No teams created yet. <a href="/admin/teams/create">Create teams</a> to get started!</p>
-        <% } %>
+                    <div class="team-stats">
+                        <p><strong>Owner:</strong> <%= team.owner && team.owner.name ? team.owner.name + (team.owner.isPlaying ? ' (plays)' : '') : '—' %></p>
+                        <p><strong>Players:</strong> <%= team.playersCount %>/<%= tournament.squad.max %></p>
+                        <p><strong>Remaining:</strong> <%= money(team.remainingPurse) %></p>
+                        <p><strong>Spent:</strong> <%= money(team.spent) %></p>
+                    </div>
+                    <a href="/admin/teams/<%= team._id %>" class="btn btn-sm"><i class="fa-solid fa-eye"></i> View squad</a>
+                </div>
+            <% }) %>
+        </div>
     </div>
 
-    <!-- Recent Activity -->
     <div class="recent-activity glass-card">
-        <h2><i class="fa-solid fa-clock-rotate-left"></i> Recent Sales</h2>
-        <% if (recentSales && recentSales.length > 0) { %>
-            <table class="activity-table">
-                <thead>
-                    <tr>
-                        <th>Player</th>
-                        <th>Category</th>
-                        <th>Team</th>
-                        <th>Price</th>
-                        <th>Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% recentSales.forEach(sale => { %>
-                        <tr>
-                            <td><%= sale.playerName %></td>
-                            <td><span class="badge badge-<%= sale.category %>"><%= sale.category %></span></td>
-                            <td><%= sale.teamName %></td>
-                            <td>₹<%= sale.price.toLocaleString('en-IN') %></td>
-                            <td><%= new Date(sale.time).toLocaleTimeString() %></td>
-                        </tr>
-                    <% }) %>
-                </tbody>
-            </table>
+        <h2><i class="fa-solid fa-clock-rotate-left"></i> Recent sales</h2>
+        <% if (recentSales.length) { %>
+            <div class="table-responsive">
+                <table class="activity-table">
+                    <thead><tr><th>Player</th><th>Category</th><th>Team</th><th>Price</th><th>Time</th></tr></thead>
+                    <tbody>
+                        <% recentSales.forEach(sale => { %>
+                            <tr>
+                                <td><%= sale.name %></td>
+                                <td><%- categoryBadge(sale.category) %></td>
+                                <td><span class="team-swatch" style="--team: <%= sale.soldTo ? sale.soldTo.color : '#999' %>"></span> <%= sale.soldTo ? sale.soldTo.name : '—' %></td>
+                                <td><%= money(sale.soldPrice) %></td>
+                                <td><%= sale.soldAt ? new Date(sale.soldAt).toLocaleTimeString() : '' %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
         <% } else { %>
             <p class="no-data">No sales yet. Start the auction to begin!</p>
         <% } %>
