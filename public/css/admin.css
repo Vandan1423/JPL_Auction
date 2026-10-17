@@ -2277,6 +2277,9 @@ select.form-control {
   padding: 1.5rem;
   box-shadow: var(--glass-shadow);
   min-height: 220px;
+  /* A flex item in the scrolling centre column: without this it shrinks to
+     min-height and long names or extra chips spill out of the card. */
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2285,8 +2288,8 @@ select.form-control {
 .player-showcase {
   width: 100%;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 2rem;
+  grid-template-columns: auto minmax(0, 1fr) minmax(200px, auto);
+  gap: 1.75rem;
   align-items: center;
 }
 
