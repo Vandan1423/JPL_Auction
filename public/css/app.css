@@ -403,7 +403,9 @@ kbd {
   font: 600 0.7rem/1.4 var(--font-body); text-align: center; box-shadow: inset 0 -1px 0 var(--gray-300);
 }
 .btn kbd { margin-left: 0.25rem; background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); color: inherit; box-shadow: none; }
-.next-player-actions { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; }
+/* Side by side when the sidebar has room, stacked in the narrow desktop sidebar. */
+.next-player-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.5rem; }
+.next-player-hint { grid-column: 1 / -1; margin: 0; font-size: 0.75rem; color: var(--gray-500); text-align: center; }
 .reorder-bar { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0 0.25rem; font-size: 0.75rem; }
 .filter-btn[style*="--cat"]:not(.active) { border-color: color-mix(in srgb, var(--cat) 45%, white); }
 .player-list-item .badge { margin-left: auto; }

@@ -160,8 +160,10 @@
         $('unsoldBtn').disabled = busy || !live;
         $('withdrawBtn').disabled = busy || !live || Boolean(snapshot.auction.currentBidder);
         $('undoBtn').disabled = busy || !snapshot.counts.sold;
-        $('nextPlayerBtn').disabled = busy || Boolean(live && snapshot.auction.currentBidder);
+        const hasBids = Boolean(live && snapshot.auction.currentBidder);
+        $('nextPlayerBtn').disabled = busy || hasBids;
         $('randomPlayerBtn').disabled = $('nextPlayerBtn').disabled;
+        $('nextPlayerHint').hidden = !hasBids;
     }
 
     // ───────────────────────────── Player queue ─────────────────────────────
