@@ -53,6 +53,21 @@ The repository is ready for Vercel: `api/index.js` exposes the Express app as a 
 
 Uploads are limited to 4 MB per file (Vercel caps request bodies at 4.5 MB). Photos are compressed in the browser first, so a normal phone photo is far below that.
 
+## Demo data
+
+`npm run seed:demo` creates a ready-made tournament, **Skyline Premier League 2026**, for trying the app out and taking screenshots: 8 teams with logos and owners (three of whom play), 96 players across Platinum, Gold and Silver, each with a photo. The auction is run through the real bidding services, so every sale follows the purse, category and wicket-keeper rules.
+
+| Command | Result |
+|---|---|
+| `npm run seed:demo` | Auction half done: 56 sold, a few unsold, one player under the hammer with bids |
+| `npm run seed:demo -- --stage=fresh` | Every player still in the pool, to run the auction yourself |
+| `npm run seed:demo -- --stage=complete` | Every player sold: full squads, reports and PDFs |
+| `npm run seed:demo -- --remove` | Delete the demo tournament |
+
+Re-running replaces only the demo tournament; your other tournaments are untouched. With Cloudinary configured, the photos and logos are uploaded to your account like real ones (and removed again with the tournament). Without it they are linked directly.
+
+All people in the demo are fictional: invented names, stock portraits from [randomuser.me](https://randomuser.me) and no phone numbers.
+
 ## Running an auction
 
 1. **Create the tournament.** Log in and click **New tournament**. The wizard's steps: details and logo → squad size and purse → categories and bid increments → player roles and form fields → teams, logos and owners → unsold-player rule and review.
@@ -80,6 +95,7 @@ Once the auction has started (any player sold or passed unsold), settings that w
 | `npm start` | Start the server |
 | `npm run dev` | Start with auto-reload (nodemon) |
 | `npm test` | Run the unit tests (bidding rules, spreadsheet import) |
+| `npm run seed:demo` | Create the demo tournament (see [Demo data](#demo-data)) |
 
 ## Project structure
 
@@ -97,6 +113,7 @@ middleware/           Auth, tournament context, uploads, view helpers, errors
 socket/               Live auction rooms (one per tournament)
 views/                EJS templates: admin panel, setup wizard, live display
 public/               CSS, browser scripts, logo
+scripts/              Demo tournament seed (npm run seed:demo)
 test/                 node:test unit tests
 ```
 

@@ -76,6 +76,28 @@ export function uploadImage(buffer, { tournamentId, kind }) {
 	});
 }
 
+/**
+ * Upload from a remote URL or data URI instead of a buffer. Only for trusted,
+ * server-side sources (the demo seed script); browser uploads use uploadImage.
+ * `format` converts on upload, e.g. 'png' for an SVG logo.
+ */
+export async function uploadImageFrom(source, { tournamentId, kind, format }) {
+	ensureConfigured();
+	const result = await cloudinary.uploader.upload(source, {
+		folder: folderFor(tournamentId, kind),
+		resource_type: 'image',
+		transformation: [UPLOAD_PRESETS[kind] || UPLOAD_PRESETS.players],
+		...(format ? { format } : {}),
+	});
+	return { url: result.secure_url, publicId: result.public_id };
+}
+
+/** Quick credentials check: resolves with Cloudinary's ping response. */
+export function pingCloudinary() {
+	ensureConfigured();
+	return cloudinary.api.ping();
+}
+
 /** Delete one image; failures are logged, never thrown. */
 export async function deleteImage(publicId) {
 	if (!publicId || !isCloudinaryConfigured()) return;
