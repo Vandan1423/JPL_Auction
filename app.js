@@ -11,7 +11,7 @@ import express from 'express';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 
-import connectDB, { syncIndexes } from './config/database.js';
+import connectDB, { migrateData, syncIndexes } from './config/database.js';
 import adminRoutes from './routes/admin.js';
 import publicRoutes from './routes/public.js';
 import auctionRoutes from './routes/auction.js';
@@ -42,7 +42,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Connect before anything needs the database (including the session store).
 // The connection is cached, so this is a no-op after the first request.
 const dbReady = connectDB();
-dbReady.then(() => syncIndexes()).catch((err) => logger.warn('Index sync skipped', { message: err.message }));
+dbReady
+	.then(() => syncIndexes())
+	.then(() => migrateData())
+	.catch((err) => logger.warn('Database upkeep skipped', { message: err.message }));
 app.use((req, res, next) => {
 	connectDB().then(() => next(), next);
 });

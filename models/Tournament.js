@@ -70,8 +70,6 @@ const tournamentSchema = new Schema(
 		},
 		purse: { type: Number, min: 0, default: 1000000 },
 		maxBidPerPlayer: { type: Number, min: 0, default: null },
-		// Charged to a team whose owner also plays (0 = free).
-		ownerPlayerPrice: { type: Number, min: 0, default: 0 },
 
 		categories: { type: [categorySchema], default: [] },
 		bidIncrements: { type: [incrementSlabSchema], default: () => [{ from: 0, step: 1000 }] },

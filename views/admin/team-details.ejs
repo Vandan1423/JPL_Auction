@@ -81,7 +81,7 @@
                                 <td><%= p.role || '—' %></td>
                                 <td><%- p.isOwner ? '—' : categoryBadge(p.category) %></td>
                                 <td><%= category ? money(category.basePrice) : '—' %></td>
-                                <td class="price-paid"><%= money(p.soldPrice) %></td>
+                                <td class="price-paid"><%= p.isOwner ? 'Free' : money(p.soldPrice) %></td>
                                 <td><%= p.soldAt ? new Date(p.soldAt).toLocaleString() : (p.isOwner ? 'Owner' : '—') %></td>
                             </tr>
                         <% }) %>

@@ -24,7 +24,6 @@ export const tournament = {
 	squad: { min: 11, max: 14 },
 	purse: 1000000,
 	maxBidPerPlayer: null,
-	ownerPlayerPrice: 40000,
 	categories: [
 		{ name: 'Platinum', basePrice: 50000, color: '#F59E0B', maxPerTeam: 3, increments: [] },
 		{ name: 'Gold', basePrice: 20000, color: '#6366F1', maxPerTeam: null, increments: [] },

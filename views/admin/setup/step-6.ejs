@@ -25,7 +25,7 @@
             <li>Squad of <%= tournament.squad.min === tournament.squad.max ? tournament.squad.max : `${tournament.squad.min}–${tournament.squad.max}` %> players</li>
             <li><%= money(tournament.purse) %> purse per team</li>
             <% if (tournament.maxBidPerPlayer) { %><li>Max <%= money(tournament.maxBidPerPlayer) %> for one player</li><% } %>
-            <li>Playing owner costs <%= tournament.ownerPlayerPrice ? money(tournament.ownerPlayerPrice) : 'nothing' %></li>
+            <li>Playing owners are free and fill one squad slot</li>
         </ul>
     </section>
 

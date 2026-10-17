@@ -196,7 +196,7 @@ export const exportTeamSheetsExcel = async (req, res, next) => {
 				.filter((p) => String(p.soldTo) === String(team._id))
 				.forEach((p, i) => {
 					const category = t.getCategory(p.category);
-					sheet.addRow([i + 1, p.isOwner ? `${p.name} (Owner)` : p.name, p.role, category?.name || '—', category?.basePrice || '', p.soldPrice]);
+					sheet.addRow([i + 1, p.isOwner ? `${p.name} (Owner)` : p.name, p.role, category?.name || '—', category?.basePrice || '', p.isOwner ? 'Free' : p.soldPrice]);
 				});
 
 			sheet.columns.forEach((col, i) => {

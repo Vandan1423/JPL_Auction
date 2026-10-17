@@ -7,7 +7,7 @@ A real-time player auction platform for any cricket tournament. Set up a tournam
 ## Features
 
 - **Any tournament, many tournaments.** A setup wizard asks for the number of teams, squad size (minimum and maximum), purse per team, categories with base prices, bid-increment slabs, player roles and registration fields. Each tournament keeps its own teams, players and auction, and you switch between them after logging in.
-- **Owners instead of captains.** Every team has an owner. If the owner also plays, they join the squad automatically and fill one slot, optionally at a fixed price taken from the purse.
+- **Owners instead of captains.** Every team has an owner. If the owner also plays, they join the squad automatically and fill one slot for free: the purse is only for players bought at auction.
 - **Correct bidding rules.** The opening bid is exactly the base price, and slab increments apply only from the second bid. The highest bidder can't raise its own bid. Categories can have their own increments and a per-team limit (for example, at most 2 "A" players per team).
 - **Purse protection.** No team can bid so much that it can't complete its minimum squad at base prices. Each team's maximum bid is shown live, and the calculation accounts for the cheap players that cash-strapped rivals will be forced to buy.
 - **Live control panel.** Next or random player (optionally by category), BID buttons that show the amount, custom bids, sold, unsold (re-queued, optionally moved down a category), withdraw, undo last bid and undo last sale, plus keyboard shortcuts (`1`–`9`, `N`, `R`, `Space`, `U`, `Backspace`, `Ctrl/⌘+Z`).

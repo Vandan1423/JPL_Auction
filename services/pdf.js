@@ -216,7 +216,8 @@ export function drawTeamSquad(doc, tournament, team, squad, { logo = null, photo
 		doc.font('Helvetica-Bold').text(player.name + (player.isOwner ? '  (Owner)' : ''), cols[1].x + 30, y + 7, { width: cols[1].w - 30, lineBreak: false, ellipsis: true });
 		doc.font('Helvetica').fillColor(GRAY_500).text(player.role || '—', cols[2].x, y + 7, { width: cols[2].w, lineBreak: false, ellipsis: true });
 		doc.text(category?.name || '—', cols[3].x, y + 7, { width: cols[3].w, lineBreak: false, ellipsis: true });
-		doc.fillColor(GRAY_900).font('Helvetica-Bold').text(pdfMoney(player.soldPrice, tournament.currency), cols[4].x, y + 7, { width: cols[4].w, lineBreak: false });
+		const price = player.isOwner ? 'Free' : pdfMoney(player.soldPrice, tournament.currency);
+		doc.fillColor(GRAY_900).font('Helvetica-Bold').text(price, cols[4].x, y + 7, { width: cols[4].w, lineBreak: false });
 		y += 28;
 	});
 

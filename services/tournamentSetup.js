@@ -69,7 +69,7 @@ export async function syncOwnerPlayers(tournament) {
 					name: team.owner.name,
 					role: team.owner.role || '',
 					status: 'sold',
-					soldPrice: tournament.ownerPlayerPrice || 0,
+					soldPrice: 0,
 					...(hasPhoto ? { photo: team.owner.photo } : {}),
 				},
 				...(hasPhoto ? {} : { $unset: { photo: 1 } }),

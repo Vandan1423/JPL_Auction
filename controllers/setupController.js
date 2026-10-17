@@ -98,7 +98,6 @@ async function formDataFor(step, tournament) {
 				squadMax: tournament.squad.max,
 				purse: tournament.purse,
 				maxBidPerPlayer: tournament.maxBidPerPlayer ?? '',
-				ownerPlayerPrice: tournament.ownerPlayerPrice ?? 0,
 			};
 		case 3: {
 			if (tournament.categories.length === 0) return suggestedCategories(tournament);
@@ -316,7 +315,6 @@ async function saveSquad(req, t, { locked }) {
 		squadMax: toInt(b.squadMax),
 		purse: toInt(b.purse),
 		maxBidPerPlayer: toInt(b.maxBidPerPlayer),
-		ownerPlayerPrice: toInt(b.ownerPlayerPrice) ?? 0,
 	};
 	if (locked) {
 		return { data, errors: ['Squad and purse settings are locked because the auction has started. Reset the auction in Settings to change them.'] };
@@ -337,9 +335,6 @@ async function saveSquad(req, t, { locked }) {
 	if (data.maxBidPerPlayer !== null && (data.maxBidPerPlayer < 1 || data.maxBidPerPlayer > (data.purse || 0))) {
 		errors.push('Maximum bid per player must be between 1 and the team purse (leave it blank for no limit)');
 	}
-	if (data.ownerPlayerPrice < 0 || data.ownerPlayerPrice > (data.purse || 0)) {
-		errors.push('The price charged for a playing owner must be between 0 and the team purse');
-	}
 	if (errors.length) return { data, errors };
 
 	const requiredRoles = t.roleRequirements.reduce((sum, r) => sum + r.min, 0);
@@ -352,7 +347,6 @@ async function saveSquad(req, t, { locked }) {
 		squad: { min: data.squadMin, max: data.squadMax },
 		purse: data.purse,
 		maxBidPerPlayer: data.maxBidPerPlayer,
-		ownerPlayerPrice: data.ownerPlayerPrice,
 	});
 	await t.save();
 	await syncTeams(t);

@@ -38,4 +38,14 @@ export async function syncIndexes() {
 	}
 }
 
+/**
+ * One-off fixes for data saved by older versions. Safe to run on every start:
+ * each update matches nothing once the data is current.
+ */
+export async function migrateData() {
+	// Playing owners used to cost an optional fixed price; they are now free.
+	await Player.updateMany({ isOwner: true, soldPrice: { $ne: 0 } }, { $set: { soldPrice: 0 } });
+	await Tournament.collection.updateMany({ ownerPlayerPrice: { $exists: true } }, { $unset: { ownerPlayerPrice: '' } });
+}
+
 export default connectDB;

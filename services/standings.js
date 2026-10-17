@@ -22,7 +22,8 @@ export async function getTeamStats(tournament) {
 				$group: {
 					_id: { team: '$soldTo', category: '$category', role: '$role' },
 					count: { $sum: 1 },
-					spent: { $sum: '$soldPrice' },
+					// Playing owners fill a slot but are free: only auction buys use the purse.
+					spent: { $sum: { $cond: ['$isOwner', 0, '$soldPrice'] } },
 				},
 			},
 		]),
