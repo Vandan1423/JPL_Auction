@@ -25,7 +25,7 @@ export const isCloudinaryConfigured = () => {
 let configured = false;
 const ensureConfigured = () => {
 	if (!isCloudinaryConfigured()) {
-		const error = new Error('Image uploads are not set up yet. Add CLOUDINARY_URL to the .env file and restart the server.');
+		const error = new Error('Image uploads are not set up yet. Add the Cloudinary keys (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) to the environment and restart.');
 		error.status = 503;
 		throw error;
 	}

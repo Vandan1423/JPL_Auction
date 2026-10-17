@@ -1,51 +1,69 @@
+// The Express app, without starting a server. It is used two ways:
+//   • server.js  — a long-running server with Socket.IO (local, Render, Railway…)
+//   • api/index.js — a Vercel serverless function (live screens poll instead)
+
 // Load .env before any other module reads process.env.
 import 'dotenv/config';
 
 import path from 'path';
-import http from 'http';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
-import mongoose from 'mongoose';
-import { Server } from 'socket.io';
 
-import connectDB from './config/database.js';
+import connectDB, { syncIndexes } from './config/database.js';
 import adminRoutes from './routes/admin.js';
 import publicRoutes from './routes/public.js';
 import auctionRoutes from './routes/auction.js';
 import { viewLocals } from './middleware/viewLocals.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-import { setupSocket } from './socket/index.js';
-import { isCloudinaryConfigured } from './services/cloudinary.js';
 import logger from './utils/logger.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction && !process.env.SESSION_SECRET) {
+	logger.warn('SESSION_SECRET is not set: set it in your hosting environment variables');
+}
 
 const app = express();
 
+// Behind Vercel/Render's proxy: needed for secure cookies and req.protocol.
+app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+// "socket" when server.js attaches Socket.IO; otherwise screens poll for updates.
+app.set('realtime', 'polling');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Sessions are kept in MongoDB, so admins stay logged in across server restarts.
+// Connect before anything needs the database (including the session store).
+// The connection is cached, so this is a no-op after the first request.
+const dbReady = connectDB();
+dbReady.then(() => syncIndexes()).catch((err) => logger.warn('Index sync skipped', { message: err.message }));
+app.use((req, res, next) => {
+	connectDB().then(() => next(), next);
+});
+
+// Sessions are kept in MongoDB, so admins stay logged in across restarts and
+// across serverless instances.
 app.use(
 	session({
 		secret: process.env.SESSION_SECRET || 'change-me',
 		resave: false,
 		saveUninitialized: false,
 		store: MongoStore.create({
-			clientPromise: mongoose.connection.asPromise().then((connection) => connection.getClient()),
+			clientPromise: dbReady.then((connection) => connection.getClient()),
 			collectionName: 'sessions',
 			ttl: 24 * 60 * 60, // seconds
 		}),
 		cookie: {
 			maxAge: 24 * 60 * 60 * 1000, // 24 hours
-			secure: false, // Set to true in production with HTTPS
+			// HTTPS-only when the request came over HTTPS (Vercel, Render…),
+			// still usable on http://localhost.
+			secure: 'auto',
 			httpOnly: true,
 			sameSite: 'lax',
 		},
@@ -55,17 +73,9 @@ app.use(
 
 app.use(viewLocals);
 
-const server = http.createServer(app);
-const io = new Server(server, {
-	// Increase timeouts to prevent disconnections during a long auction
-	pingTimeout: 120000, // 2 minutes
-	pingInterval: 30000, // 30 seconds
-	transports: ['polling', 'websocket'],
-});
-
-app.set('io', io);
+// Socket.IO server, if server.js attached one (undefined on Vercel).
 app.use((req, _res, next) => {
-	req.io = io;
+	req.io = req.app.get('io');
 	next();
 });
 
@@ -85,8 +95,6 @@ app.post('/keep-alive', (req, res) => {
 	}
 });
 
-setupSocket(io);
-
 app.use('/admin', adminRoutes);
 app.use('/auction', auctionRoutes);
 app.use('/', publicRoutes);
@@ -101,25 +109,4 @@ app.use(notFoundHandler);
 // Error handler (must be last)
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-
-const start = async () => {
-	await connectDB();
-
-	if (!isCloudinaryConfigured()) {
-		logger.warn('CLOUDINARY_URL is not set: image uploads are disabled until it is added to .env');
-	}
-
-	server.listen(PORT, () => {
-		logger.info(`Server started on port ${PORT}`);
-		console.log(`Admin Panel:    http://localhost:${PORT}/admin/login`);
-		console.log(`Public Display: http://localhost:${PORT}/display`);
-	});
-};
-
-start().catch((err) => {
-	logger.error('Failed to start server', { error: err.message });
-	process.exit(1);
-});
-
-export { io };
+export default app;

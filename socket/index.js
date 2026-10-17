@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import mongoose from 'mongoose';
 import Tournament from '../models/Tournament.js';
+import AuctionState from '../models/AuctionState.js';
 import { getSnapshot, roomFor } from '../services/auction.js';
 import logger from '../utils/logger.js';
 
@@ -33,12 +34,19 @@ export function setupSocket(io) {
 }
 
 /**
- * Tell everyone watching a tournament that something happened. Returns the
- * event so the HTTP response can carry the same id (clients use it to avoid
- * playing an animation twice).
+ * Tell everyone watching a tournament that something happened. The event is
+ * also stored on the auction state, so screens that poll (on Vercel there is
+ * no Socket.IO) see it in their next snapshot. Returns the event so the HTTP
+ * response can carry the same id (clients use it to avoid playing an
+ * animation twice).
  */
 export async function broadcast(io, tournament, type, details = {}) {
-	const event = { id: randomUUID(), type, ...details, snapshot: await getSnapshot(tournament) };
+	const id = randomUUID();
+	await AuctionState.updateOne(
+		{ tournament: tournament._id },
+		{ $set: { lastEvent: { id, type, details, at: new Date() } } }
+	);
+	const event = { id, type, ...details, snapshot: await getSnapshot(tournament) };
 	io?.to(roomFor(tournament._id)).emit('auction:event', event);
 	return event;
 }

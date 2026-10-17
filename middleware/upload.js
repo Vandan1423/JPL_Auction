@@ -1,9 +1,10 @@
 import multer from 'multer';
 
+// Vercel rejects request bodies over 4.5 MB, so uploads stay under 4 MB.
 // Files are held in memory only long enough to process them (images go to
 // Cloudinary, spreadsheets are parsed); nothing is written inside the project.
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-const MAX_SHEET_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_SHEET_BYTES = 4 * 1024 * 1024;
 
 const SHEET_TYPES = new Set([
 	'text/csv',
@@ -37,7 +38,7 @@ const spreadsheets = multer({
 });
 
 const describe = (error) => {
-	if (error.code === 'LIMIT_FILE_SIZE') return 'That file is too large';
+	if (error.code === 'LIMIT_FILE_SIZE') return 'That file is too large (4 MB at most)';
 	if (error.code === 'LIMIT_FILE_COUNT') return 'Too many files in one upload';
 	return error.message || 'Upload failed';
 };

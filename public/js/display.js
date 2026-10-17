@@ -199,9 +199,7 @@ function hideOverlay(id) {
     setTimeout(() => { overlay.style.display = 'none'; }, 500);
 }
 
-// ─── Socket + fallback polling ───
-
-const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionDelayMax: 5000, transports: ['polling', 'websocket'] });
+// ─── Live updates: Socket.IO, or polling on serverless hosts (Vercel) ───
 
 function setConnectionStatus(connected) {
     const el = document.getElementById('connectionStatus');
@@ -210,24 +208,56 @@ function setConnectionStatus(connected) {
     el.className = `header-stat connection-status ${connected ? '' : 'disconnected'}`;
 }
 
-socket.on('connect', () => {
-    setConnectionStatus(true);
-    socket.emit('join-tournament', DISPLAY.tournamentId);
-});
-socket.on('disconnect', () => setConnectionStatus(false));
-socket.on('auction:state', render);
-socket.on('auction:event', handleEvent);
+async function fetchSnapshot() {
+    const res = await fetch(`/api/display/${encodeURIComponent(DISPLAY.slug)}`);
+    const data = await res.json();
+    return data.success ? data.snapshot : null;
+}
 
-setInterval(async () => {
-    if (socket.connected) return;
-    try {
-        const res = await fetch(`/api/display/${encodeURIComponent(DISPLAY.slug)}`);
-        const data = await res.json();
-        if (data.success) render(data.snapshot);
-    } catch {
-        // Server unreachable; keep showing the last known state.
-    }
-}, 10000);
+/** Apply a polled snapshot, playing its latest event if it is new. */
+function applyPolled(next) {
+    const event = next.lastEvent;
+    if (event && !seenEvents.has(event.id)) handleEvent({ ...event, snapshot: next });
+    else render(next);
+}
+
+if (DISPLAY.realtime === 'socket' && typeof io !== 'undefined') {
+    const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionDelayMax: 5000, transports: ['polling', 'websocket'] });
+    socket.on('connect', () => {
+        setConnectionStatus(true);
+        socket.emit('join-tournament', DISPLAY.tournamentId);
+    });
+    socket.on('disconnect', () => setConnectionStatus(false));
+    socket.on('auction:state', render);
+    socket.on('auction:event', handleEvent);
+
+    // Safety net while the socket is down.
+    setInterval(async () => {
+        if (socket.connected) return;
+        try {
+            const next = await fetchSnapshot();
+            if (next) applyPolled(next);
+        } catch {
+            // Server unreachable; keep showing the last known state.
+        }
+    }, 10000);
+} else {
+    // Events from before the screen was opened must not replay.
+    if (snapshot.lastEvent) seenEvents.add(snapshot.lastEvent.id);
+    const poll = async () => {
+        try {
+            const next = await fetchSnapshot();
+            if (next) {
+                setConnectionStatus(true);
+                applyPolled(next);
+            }
+        } catch {
+            setConnectionStatus(false);
+        }
+        setTimeout(poll, 1500);
+    };
+    setTimeout(poll, 1500);
+}
 
 // ═══════════════ VISUAL EFFECTS ═══════════════
 

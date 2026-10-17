@@ -13,6 +13,8 @@ export const viewLocals = (req, res, next) => {
 	res.locals.img = imageUrl;
 	res.locals.uploadsEnabled = isCloudinaryConfigured();
 	res.locals.tournament = null;
+	// "socket" (instant updates) or "polling" (serverless hosts such as Vercel).
+	res.locals.realtime = req.app.get('realtime') || 'polling';
 	// JSON for inline <script> blocks: escaping "<" stops a name like "</script>" breaking out.
 	res.locals.json = (value) =>
 		JSON.stringify(value ?? null)

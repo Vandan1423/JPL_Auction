@@ -40,8 +40,8 @@
             <p><span class="chip chip-warning"><i class="fa-solid fa-triangle-exclamation"></i> Not set up</span> Uploads are switched off. To turn them on:</p>
             <ol class="settings-steps-list">
                 <li>Create a free account at cloudinary.com</li>
-                <li>In the Cloudinary console open <strong>Settings → API Keys</strong> and copy the <strong>API environment variable</strong></li>
-                <li>Add it to the <code>.env</code> file as <code>CLOUDINARY_URL=cloudinary://…</code> and restart the server</li>
+                <li>From the Cloudinary console copy your <strong>Cloud name</strong> (top of the dashboard) and, under <strong>Settings → API Keys</strong>, the <strong>API key</strong> and <strong>API secret</strong></li>
+                <li>Set them as <code>CLOUDINARY_CLOUD_NAME</code>, <code>CLOUDINARY_API_KEY</code> and <code>CLOUDINARY_API_SECRET</code>: in <code>.env</code> locally, or in your host's environment variables (Vercel → Project → Settings → Environment Variables). Then restart or redeploy.</li>
             </ol>
         <% } %>
     </div>

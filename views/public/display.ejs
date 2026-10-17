@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title><%= tournament.name %> · Live Auction</title>
         <link rel="stylesheet" href="/css/display.css" />
-        <script src="/socket.io/socket.io.js"></script>
+        <% if (realtime === 'socket') { %><script src="/socket.io/socket.io.js"></script><% } %>
     </head>
     <body>
         <div class="display-container">
@@ -66,6 +66,7 @@
             window.DISPLAY_CONFIG = <%- json({
                 tournamentId: String(tournament._id),
                 slug: tournament.slug,
+                realtime,
                 currency: { symbol: currency.symbol, suffix: currency.suffix || '', locale: currency.locale },
                 snapshot,
             }) %>;

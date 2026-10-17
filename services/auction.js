@@ -138,6 +138,10 @@ export async function getSnapshot(tournament) {
 		teams,
 		counts,
 		squad: { min: tournament.squad.min, max: tournament.squad.max },
+		// Same shape as a socket event (minus the snapshot) for polling screens.
+		lastEvent: state.lastEvent?.id
+			? { id: state.lastEvent.id, type: state.lastEvent.type, ...(state.lastEvent.details || {}) }
+			: null,
 		recentSales: recent.map((p) => ({
 			playerId: p._id,
 			playerName: p.name,

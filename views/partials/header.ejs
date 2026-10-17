@@ -21,8 +21,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
     <% } %>
 
-    <!-- Socket.IO + Confetti -->
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- Socket.IO (only when the server runs it) + Confetti -->
+    <% if (realtime === 'socket') { %><script src="/socket.io/socket.io.js"></script><% } %>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <% if (tournament) { %>
@@ -30,6 +30,7 @@
         window.AUCTION_CONFIG = <%- json({
             tournamentId: String(tournament._id),
             slug: tournament.slug,
+            realtime,
             currency: { symbol: currency.symbol, suffix: currency.suffix || '', locale: currency.locale },
         }) %>;
     </script>

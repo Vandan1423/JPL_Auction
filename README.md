@@ -31,15 +31,27 @@ npm start
 | `MONGODB_URI` | MongoDB connection string, e.g. `mongodb://localhost:27017/auction-hub` |
 | `ADMIN_PASSWORD` | Password for the admin panel |
 | `SESSION_SECRET` | Any long random string |
-| `CLOUDINARY_URL` | Cloudinary console → Settings → API Keys → "API environment variable" (`cloudinary://key:secret@cloud`) |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | From the Cloudinary console (cloud name on the dashboard; key and secret under Settings → API Keys). Or set `CLOUDINARY_URL` (`cloudinary://key:secret@cloud`) instead. |
 | `PORT` | Optional, defaults to 3000 |
 
-The app runs without Cloudinary; photo and logo uploads simply stay switched off until `CLOUDINARY_URL` is set.
+The app runs without Cloudinary; photo and logo uploads simply stay switched off until the keys are set.
 
 | Page | URL |
 |---|---|
 | Admin panel | http://localhost:3000/admin/login |
 | Live display | http://localhost:3000/display |
+
+## Deploying to Vercel
+
+The repository is ready for Vercel: `api/index.js` exposes the Express app as a serverless function, `vercel.json` routes every request to it, and `public/` is served from Vercel's CDN.
+
+1. Create a free **MongoDB Atlas** cluster. Under Network Access, allow `0.0.0.0/0` (Vercel's IP addresses change). Copy the connection string.
+2. On vercel.com, choose **Add New → Project** and import the GitHub repository. Leave the framework preset as **Other** and leave the build settings empty.
+3. Under **Settings → Environment Variables**, add `MONGODB_URI`, `ADMIN_PASSWORD`, `SESSION_SECRET` and the three `CLOUDINARY_*` variables, then deploy.
+
+**Live updates on Vercel.** Serverless functions can't keep WebSocket connections open, so on Vercel the control panel and the live display fetch the latest auction state every ~1.5 seconds instead of using Socket.IO. Bids, sales and the SOLD/UNSOLD animations still show up, just up to about a second later. To get instant updates, run `npm start` on a host that keeps a process running (Render, Railway, Fly.io or a VPS). The same code then switches to Socket.IO automatically.
+
+Uploads are limited to 4 MB per file (Vercel caps request bodies at 4.5 MB). Photos are compressed in the browser first, so a normal phone photo is far below that.
 
 ## Running an auction
 
@@ -72,7 +84,9 @@ Once the auction has started (any player sold or passed unsold), settings that w
 ## Project structure
 
 ```
-app.js                Express + Socket.IO server
+app.js                Express app (routes, sessions, views)
+server.js             Long-running server: app + Socket.IO (npm start)
+api/index.js          Vercel serverless entry (same app, live screens poll)
 config/               Database connection, app-wide constants
 models/               Tournament, Team, Player, AuctionState
 services/             Bid rules, auction operations, standings, Cloudinary,

@@ -25,6 +25,16 @@ const auctionStateSchema = new Schema(
 		roundNumber: { type: Number, default: 0 },
 		lastBidTime: { type: Date },
 		bidHistory: [bidEntrySchema],
+		// The most recent auction event (bid, sold, unsold…), so screens that
+		// poll instead of using Socket.IO can still play the right animation.
+		lastEvent: {
+			id: String,
+			// Spelled out: a bare `type: String` would make Mongoose treat all of
+			// lastEvent as a string field.
+			type: { type: String },
+			details: Schema.Types.Mixed,
+			at: Date,
+		},
 	},
 	{ timestamps: true, optimisticConcurrency: true }
 );

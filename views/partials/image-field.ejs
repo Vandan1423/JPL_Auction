@@ -23,9 +23,9 @@
                     <label class="image-field-remove"><input type="checkbox" name="<%= removeName %>"> Remove</label>
                 <% } %>
             </div>
-            <small class="form-text"><%= locals.hint || 'JPG, PNG or WebP, up to 8 MB' %></small>
+            <small class="form-text"><%= locals.hint || 'JPG, PNG or WebP, up to 4 MB' %></small>
         <% } else { %>
-            <small class="form-text warning"><i class="fa-solid fa-circle-info"></i> Uploads are off until CLOUDINARY_URL is added to .env</small>
+            <small class="form-text warning"><i class="fa-solid fa-circle-info"></i> Uploads are off until Cloudinary keys are set (see Settings)</small>
         <% } %>
     </div>
 </div>

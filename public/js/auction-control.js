@@ -333,16 +333,18 @@
         setTimeout(close, 2600);
     }
 
-    // ───────────────────────────── Socket ─────────────────────────────
+    // ───────────────────────────── Live updates ─────────────────────────────
+    // Socket.IO when the server runs it; otherwise (e.g. on Vercel) poll the
+    // snapshot. Either way the latest event arrives with the snapshot.
 
-    if (typeof io !== 'undefined') {
+    const status = document.createElement('div');
+    status.className = 'connection-status connecting';
+    status.textContent = 'Connecting…';
+    document.body.appendChild(status);
+    const setStatus = (state, text) => { status.className = `connection-status ${state}`; status.textContent = text; };
+
+    if (config.realtime === 'socket' && typeof io !== 'undefined') {
         const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionDelayMax: 5000, transports: ['polling', 'websocket'] });
-        const status = document.createElement('div');
-        status.className = 'connection-status connecting';
-        status.textContent = 'Connecting…';
-        document.body.appendChild(status);
-        const setStatus = (state, text) => { status.className = `connection-status ${state}`; status.textContent = text; };
-
         socket.on('connect', () => {
             setStatus('connected', 'Live');
             socket.emit('join-tournament', config.tournamentId);
@@ -354,6 +356,30 @@
             refreshQueue();
         });
         socket.on('auction:event', handleEvent);
+    } else {
+        // Events that happened before this page loaded must not replay.
+        if (snapshot.lastEvent) seenEvents.add(snapshot.lastEvent.id);
+        const poll = async () => {
+            try {
+                const res = await fetch('/auction/api/state', { headers: { Accept: 'application/json' } });
+                if (res.status === 401) {
+                    window.location.href = '/admin/login';
+                    return;
+                }
+                const data = await res.json();
+                if (data.success) {
+                    setStatus('connected', 'Live');
+                    const event = data.snapshot.lastEvent;
+                    if (event && !seenEvents.has(event.id)) handleEvent({ ...event, snapshot: data.snapshot });
+                    else if (!busy) render(data.snapshot);
+                }
+            } catch {
+                setStatus('disconnected', 'Offline: retrying…');
+            }
+            // Slow down while the tab is in the background.
+            setTimeout(poll, document.hidden ? 5000 : 1500);
+        };
+        setTimeout(poll, 1500);
     }
 
     // ───────────────────────────── Custom bid modal ─────────────────────────────
