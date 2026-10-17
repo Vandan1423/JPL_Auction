@@ -49,6 +49,7 @@
             <div class="sidebar-section sidebar-actions">
                 <button type="button" class="btn btn-success btn-large" id="soldBtn" disabled><i class="fa-solid fa-check"></i> Sold</button>
                 <button type="button" class="btn btn-danger btn-large" id="unsoldBtn" disabled><i class="fa-solid fa-xmark"></i> Unsold</button>
+                <button type="button" class="btn btn-secondary btn-undo" id="undoBidBtn" disabled title="Take back the most recent bid (Backspace)"><i class="fa-solid fa-delete-left"></i> Undo last bid</button>
                 <button type="button" class="btn btn-secondary btn-undo" id="withdrawBtn" disabled><i class="fa-solid fa-user-slash"></i> Withdraw player</button>
                 <button type="button" class="btn btn-secondary btn-undo" id="undoBtn"><i class="fa-solid fa-rotate-left"></i> Undo last sale</button>
                 <a class="btn btn-secondary btn-undo" href="/display/<%= tournament.slug %>" target="_blank" rel="noopener"><i class="fa-solid fa-tv"></i> Open live display</a>
@@ -107,6 +108,7 @@
         <div class="shortcut-item"><kbd>R</kbd><span>Random player</span></div>
         <div class="shortcut-item"><kbd>Space</kbd><span>Sold</span></div>
         <div class="shortcut-item"><kbd>U</kbd><span>Unsold</span></div>
+        <div class="shortcut-item"><kbd>Backspace</kbd><span>Undo last bid</span></div>
         <div class="shortcut-item"><kbd>Ctrl/⌘</kbd> + <kbd>Z</kbd><span>Undo last sale</span></div>
         <div class="shortcut-item"><kbd>/</kbd><span>Search players</span></div>
     </div>

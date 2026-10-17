@@ -160,6 +160,7 @@
         $('unsoldBtn').disabled = busy || !live;
         $('withdrawBtn').disabled = busy || !live || Boolean(snapshot.auction.currentBidder);
         $('undoBtn').disabled = busy || !snapshot.counts.sold;
+        $('undoBidBtn').disabled = busy || !live || !snapshot.auction.bidHistory?.length;
         const hasBids = Boolean(live && snapshot.auction.currentBidder);
         $('nextPlayerBtn').disabled = busy || hasBids;
         $('randomPlayerBtn').disabled = $('nextPlayerBtn').disabled;
@@ -288,6 +289,12 @@
         if (await confirmModal(`Withdraw ${player.name} from the auction? They won't come up again unless you edit them back.`)) {
             call('/auction/api/withdraw-player', { playerId: player._id });
         }
+    }
+
+    // No confirmation: undoing a bid is itself easy to redo by bidding again.
+    function undoLastBid() {
+        if ($('undoBidBtn').disabled) return;
+        call('/auction/api/undo-bid');
     }
 
     async function undoLastSale() {
@@ -475,6 +482,7 @@
     $('unsoldBtn').addEventListener('click', markUnsold);
     $('withdrawBtn').addEventListener('click', withdrawCurrent);
     $('undoBtn').addEventListener('click', undoLastSale);
+    $('undoBidBtn').addEventListener('click', undoLastBid);
     const shortcuts = $('shortcutsDialog');
     $('shortcutsBtn').addEventListener('click', () => shortcuts.showModal());
     shortcuts.querySelector('[data-close-dialog]').addEventListener('click', () => shortcuts.close());
@@ -537,6 +545,10 @@
                 break;
             case 'u':
                 markUnsold();
+                break;
+            case 'backspace':
+                event.preventDefault();
+                undoLastBid();
                 break;
             case 'n':
                 if (!$('nextPlayerBtn').disabled) nextPlayer(false);

@@ -46,6 +46,131 @@ const ensureConfigured = () => {
 
 const folderFor = (tournamentId, kind) => `${ROOT_FOLDER}/${tournamentId}/${kind}`;
 
+// ───────────────────────── Free-plan limits ─────────────────────────
+// Cloudinary signals plan limits in different ways: HTTP 420 when the
+// Admin API's hourly request allowance is used up, a quota message when the
+// plan's monthly credits are exhausted, and a size message for files over
+// the per-image cap (10 MB on the free plan).
+
+const LIMIT_MESSAGES = {
+	quota:
+		"Cloudinary limit reached: this month's free-plan credits are used up, so images can't be uploaded or changed right now. The auction itself keeps working. Usage frees up over a rolling 30 days, or you can upgrade in the Cloudinary console.",
+	rate: 'Cloudinary limit reached: too many image requests this hour on the free plan. Wait a few minutes and try again.',
+	size: "This image is larger than Cloudinary's free-plan limit (10 MB or 25 megapixels). Choose a smaller photo.",
+};
+// How long a limit error keeps the warning banner up without a fresh usage check.
+const NOTICE_TTL = { quota: 6 * 60 * 60 * 1000, rate: 30 * 60 * 1000 };
+
+let limitHit = null; // { kind, at } after Cloudinary refused a request for a plan limit
+
+/**
+ * Classify a Cloudinary error. Upload callbacks pass { message, http_code };
+ * Admin API calls reject with { error: { message, http_code } }.
+ * @returns {{ kind: 'quota'|'rate'|'size'|'other', status: number, message: string }}
+ */
+export function describeCloudinaryError(error) {
+	const raw = error?.error && typeof error.error === 'object' ? error.error : error || {};
+	const text = String(raw.message || '');
+	const code = Number(raw.http_code) || 0;
+
+	if (/file size too large|too large|megapixel|maximum.*(size|pixels)/i.test(text)) {
+		return { kind: 'size', status: 413, message: LIMIT_MESSAGES.size };
+	}
+	if (code === 420 || code === 429 || /rate limit/i.test(text)) {
+		return { kind: 'rate', status: 429, message: LIMIT_MESSAGES.rate };
+	}
+	if (/usage limit|quota|exceed|credits?\b|plan limit|upgrade|account.*(disabled|suspended|blocked|deactivated)/i.test(text)) {
+		return { kind: 'quota', status: 503, message: LIMIT_MESSAGES.quota };
+	}
+	return { kind: 'other', status: 502, message: `Image upload failed: ${text || 'Cloudinary did not respond'}` };
+}
+
+/** Turn a Cloudinary failure into an Error with a message fit to show the admin. */
+function friendlyError(error) {
+	const info = describeCloudinaryError(error);
+	if (info.kind === 'quota' || info.kind === 'rate') limitHit = { kind: info.kind, at: Date.now() };
+	const friendly = new Error(info.message);
+	friendly.status = info.status;
+	friendly.expected = info.kind !== 'other';
+	friendly.cloudinaryLimit = info.kind === 'quota' || info.kind === 'rate';
+	return friendly;
+}
+
+let usageCache = null; // { at, value }
+let usageRequest = null;
+const USAGE_TTL = 10 * 60 * 1000;
+
+/**
+ * Plan usage from the Admin API, cached for 10 minutes (the free plan allows
+ * 500 Admin API calls an hour). Resolves to null when unavailable.
+ * @returns {Promise<null | { plan: string, usedPercent: number, used: number, limit: number }>}
+ */
+export async function getCloudinaryUsage({ maxAge = USAGE_TTL } = {}) {
+	if (!isCloudinaryConfigured()) return null;
+	if (usageCache && Date.now() - usageCache.at < maxAge) return usageCache.value;
+	if (!usageRequest) {
+		usageRequest = (async () => {
+			try {
+				ensureConfigured();
+				const usage = await cloudinary.api.usage();
+				const credits = usage.credits || {};
+				return {
+					plan: usage.plan || '',
+					used: Number(credits.usage) || 0,
+					limit: Number(credits.limit) || 0,
+					usedPercent: Number(credits.used_percent) || 0,
+				};
+			} catch (error) {
+				const info = describeCloudinaryError(error);
+				if (info.kind === 'rate' || info.kind === 'quota') limitHit = { kind: info.kind, at: Date.now() };
+				logger.warn('Cloudinary usage check failed', { message: error?.error?.message || error?.message });
+				return null;
+			}
+		})().then((value) => {
+			usageCache = { at: Date.now(), value };
+			usageRequest = null;
+			return value;
+		});
+	}
+	return usageRequest;
+}
+
+/**
+ * Banner for admin pages, from cached state only (never waits on the
+ * network); a stale usage figure is refreshed in the background.
+ * @returns {null | { level: 'error'|'warning', title: string, text: string }}
+ */
+export function getCloudinaryNotice() {
+	if (!isCloudinaryConfigured()) return null;
+	if (!usageCache || Date.now() - usageCache.at >= USAGE_TTL) getCloudinaryUsage().catch(() => {});
+
+	const usage = usageCache?.value;
+	const recent = limitHit && Date.now() - limitHit.at < NOTICE_TTL[limitHit.kind] ? limitHit.kind : null;
+	if (recent === 'quota' || usage?.usedPercent >= 100) {
+		const figure = usage ? ` (${Math.round(usage.usedPercent)}% of ${usage.limit} monthly credits used)` : '';
+		return {
+			level: 'error',
+			title: 'Cloudinary limit reached',
+			text: `Your free plan's monthly credits are used up${figure}. Photo and logo uploads will fail and images may stop loading until usage drops or you upgrade. The auction itself keeps working.`,
+		};
+	}
+	if (recent === 'rate') {
+		return {
+			level: 'warning',
+			title: 'Cloudinary limit reached for this hour',
+			text: 'Too many image requests on the free plan. Uploads and deletions will work again in a few minutes.',
+		};
+	}
+	if (usage?.usedPercent >= 80) {
+		return {
+			level: 'warning',
+			title: 'Cloudinary almost at its limit',
+			text: `${Math.round(usage.usedPercent)}% of this month's ${usage.limit} free-plan credits are used. Uploads stop working at 100%.`,
+		};
+	}
+	return null;
+}
+
 /**
  * Upload an in-memory image (from multer) and return the reference to store.
  * @param {Buffer} buffer
@@ -64,11 +189,10 @@ export function uploadImage(buffer, { tournamentId, kind }) {
 			},
 			(error, result) => {
 				if (error) {
-					logger.error('Cloudinary upload failed', { message: error.message });
-					const friendly = new Error(`Image upload failed: ${error.message}`);
-					friendly.status = 502;
-					return reject(friendly);
+					logger.error('Cloudinary upload failed', { message: error.message, http_code: error.http_code });
+					return reject(friendlyError(error));
 				}
+				limitHit = null;
 				resolve({ url: result.secure_url, publicId: result.public_id });
 			}
 		);
@@ -83,13 +207,18 @@ export function uploadImage(buffer, { tournamentId, kind }) {
  */
 export async function uploadImageFrom(source, { tournamentId, kind, format }) {
 	ensureConfigured();
-	const result = await cloudinary.uploader.upload(source, {
-		folder: folderFor(tournamentId, kind),
-		resource_type: 'image',
-		transformation: [UPLOAD_PRESETS[kind] || UPLOAD_PRESETS.players],
-		...(format ? { format } : {}),
-	});
-	return { url: result.secure_url, publicId: result.public_id };
+	try {
+		const result = await cloudinary.uploader.upload(source, {
+			folder: folderFor(tournamentId, kind),
+			resource_type: 'image',
+			transformation: [UPLOAD_PRESETS[kind] || UPLOAD_PRESETS.players],
+			...(format ? { format } : {}),
+		});
+		limitHit = null;
+		return { url: result.secure_url, publicId: result.public_id };
+	} catch (error) {
+		throw friendlyError(error);
+	}
 }
 
 /** Quick credentials check: resolves with Cloudinary's ping response. */
@@ -105,23 +234,36 @@ export async function deleteImage(publicId) {
 		ensureConfigured();
 		await cloudinary.uploader.destroy(publicId, { invalidate: true });
 	} catch (error) {
-		logger.warn('Cloudinary delete failed', { publicId, message: error.message });
+		logger.warn('Cloudinary delete failed', { publicId, message: friendlyError(error).message });
 	}
 }
 
-/** Delete every image uploaded for a tournament (used when it is deleted). */
+/**
+ * Delete every image uploaded for a tournament, then its folders (used when
+ * the tournament is deleted). Never throws.
+ * @returns {Promise<{ ok: boolean, deleted: number, folder: string, message?: string }>}
+ */
 export async function deleteTournamentImages(tournamentId) {
-	if (!isCloudinaryConfigured()) return;
-	const prefix = `${ROOT_FOLDER}/${tournamentId}`;
+	const folder = `${ROOT_FOLDER}/${tournamentId}`;
+	if (!isCloudinaryConfigured()) return { ok: true, deleted: 0, folder };
+	let deleted = 0;
 	try {
 		ensureConfigured();
-		await cloudinary.api.delete_resources_by_prefix(`${prefix}/`);
-		for (const kind of Object.keys(UPLOAD_PRESETS)) {
-			await cloudinary.api.delete_folder(`${prefix}/${kind}`).catch(() => {});
+		// Each call removes at most 1,000 images and reports `partial` when more remain.
+		for (let round = 0; round < 50; round++) {
+			const result = await cloudinary.api.delete_resources_by_prefix(`${folder}/`, { invalidate: true });
+			deleted += Object.values(result.deleted || {}).filter((status) => status === 'deleted').length;
+			if (!result.partial) break;
 		}
-		await cloudinary.api.delete_folder(prefix).catch(() => {});
+		for (const kind of Object.keys(UPLOAD_PRESETS)) {
+			await cloudinary.api.delete_folder(`${folder}/${kind}`).catch(() => {});
+		}
+		await cloudinary.api.delete_folder(folder).catch(() => {});
+		return { ok: true, deleted, folder };
 	} catch (error) {
-		logger.warn('Cloudinary cleanup failed', { tournamentId, message: error.message });
+		const message = friendlyError(error).message;
+		logger.warn('Cloudinary cleanup failed', { tournamentId, message });
+		return { ok: false, deleted, folder, message };
 	}
 }
 

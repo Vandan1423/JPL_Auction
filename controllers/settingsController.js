@@ -1,14 +1,19 @@
 import { STEPS } from './setupController.js';
 import { getPlayerCounts } from '../services/standings.js';
 import { getAuctionState, hasAuctionStarted, resetAuction } from '../services/auction.js';
-import { isCloudinaryConfigured } from '../services/cloudinary.js';
+import { getCloudinaryUsage, isCloudinaryConfigured } from '../services/cloudinary.js';
 import { broadcast } from '../socket/index.js';
 
 /** GET /admin/settings */
 export const showSettings = async (req, res, next) => {
 	try {
 		const t = req.tournament;
-		const [counts, started, state] = await Promise.all([getPlayerCounts(t), hasAuctionStarted(t), getAuctionState(t._id)]);
+		const [counts, started, state, cloudinaryUsage] = await Promise.all([
+			getPlayerCounts(t),
+			hasAuctionStarted(t),
+			getAuctionState(t._id),
+			getCloudinaryUsage(),
+		]);
 		res.render('admin/settings', {
 			title: 'Settings',
 			steps: STEPS,
@@ -16,6 +21,7 @@ export const showSettings = async (req, res, next) => {
 			started,
 			roundNumber: state.roundNumber,
 			cloudinaryReady: isCloudinaryConfigured(),
+			cloudinaryUsage,
 			displayUrl: `${req.protocol}://${req.get('host')}/display/${t.slug}`,
 		});
 	} catch (error) {

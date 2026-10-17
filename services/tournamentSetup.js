@@ -93,13 +93,18 @@ export async function nextAuctionOrder(tournamentId) {
 	return (last?.auctionOrder || 0) + 1;
 }
 
-/** Delete a tournament with all its teams, players, auction state and images. */
+/**
+ * Delete a tournament with all its teams, players (owners included), auction
+ * state and Cloudinary images. Database records are removed even if
+ * Cloudinary is unreachable; `images` says whether the images went too.
+ */
 export async function deleteTournament(tournament) {
-	await Promise.all([
+	const [players, teams] = await Promise.all([
 		Player.deleteMany({ tournament: tournament._id }),
 		Team.deleteMany({ tournament: tournament._id }),
 		AuctionState.deleteMany({ tournament: tournament._id }),
 	]);
 	await Tournament.deleteOne({ _id: tournament._id });
-	await deleteTournamentImages(tournament._id);
+	const images = await deleteTournamentImages(tournament._id);
+	return { players: players.deletedCount, teams: teams.deletedCount, images };
 }

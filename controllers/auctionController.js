@@ -8,6 +8,7 @@ import {
 	placeBid,
 	startNextPlayer,
 	startPlayer,
+	undoLastBid,
 	undoLastSale,
 	withdrawPlayer,
 } from '../services/auction.js';
@@ -100,6 +101,16 @@ export const apiPlaceBid = handle(async (req) => {
 		type: 'bid',
 		details: { teamId: team._id, amount: bid },
 		message: `${team.name} bid ${money(req, bid)}`,
+	};
+});
+
+export const apiUndoBid = handle(async (req) => {
+	const { undone, previous } = await undoLastBid(req.tournament);
+	const now = previous ? `${previous.teamName} leads at ${money(req, previous.bidAmount)}` : 'back to base price with no bids';
+	return {
+		type: 'bid-undone',
+		details: { teamId: undone.teamId, amount: undone.bidAmount },
+		message: `Bid of ${money(req, undone.bidAmount)} by ${undone.teamName} removed; ${now}`,
 	};
 });
 

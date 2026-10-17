@@ -36,6 +36,16 @@
         <h2><i class="fa-solid fa-images"></i> Image uploads</h2>
         <% if (cloudinaryReady) { %>
             <p><span class="chip chip-success"><i class="fa-solid fa-check"></i> Connected to Cloudinary</span> Player photos, team logos and owner photos are stored in Cloudinary; only their links are saved in the database.</p>
+            <% if (cloudinaryUsage) { const pct = Math.min(100, cloudinaryUsage.usedPercent); const level = cloudinaryUsage.usedPercent >= 100 ? 'is-full' : cloudinaryUsage.usedPercent >= 80 ? 'is-high' : ''; %>
+                <div class="usage-meter <%= level %>">
+                    <div class="usage-meter-label">
+                        <span><%= cloudinaryUsage.plan %> plan: <strong><%= cloudinaryUsage.used %> of <%= cloudinaryUsage.limit %></strong> monthly credits used</span>
+                        <strong><%= cloudinaryUsage.usedPercent.toFixed(1) %>%</strong>
+                    </div>
+                    <div class="usage-meter-track" role="progressbar" aria-valuenow="<%= Math.round(pct) %>" aria-valuemin="0" aria-valuemax="100"><div class="usage-meter-fill" style="width: <%= pct %>%"></div></div>
+                    <p class="muted">Credits are counted over a rolling 30 days (1 credit ≈ 1 GB of storage or bandwidth, or 1,000 image resizes). At 100%, uploads stop until usage drops.</p>
+                </div>
+            <% } %>
         <% } else { %>
             <p><span class="chip chip-warning"><i class="fa-solid fa-triangle-exclamation"></i> Not set up</span> Uploads are switched off. To turn them on:</p>
             <ol class="settings-steps-list">
@@ -71,14 +81,23 @@
         <div class="danger-row">
             <div>
                 <strong>Delete this tournament</strong>
-                <p class="muted">Removes the tournament with all its teams, players and images. Done from the tournaments page.</p>
+                <p class="muted">Permanently removes <strong><%= tournament.name %></strong> with all its teams, owners, players, sales and auction history from the database, and every photo and logo from Cloudinary. It cannot be undone.</p>
             </div>
-            <a href="/admin/tournaments" class="btn btn-outline"><i class="fa-solid fa-trophy"></i> Tournaments</a>
+            <form method="POST" action="/admin/tournaments/<%= tournament._id %>/delete" class="danger-form" id="deleteTournamentForm">
+                <input type="text" name="confirmName" class="form-control confirm-name" placeholder="Type <%= tournament.name %>" autocomplete="off" required data-expected="<%= tournament.name %>">
+                <button type="submit" class="btn btn-danger" disabled><i class="fa-solid fa-trash"></i> Delete tournament</button>
+            </form>
         </div>
     </div>
 </div>
 
 <script>
+(function () {
+    const form = document.getElementById('deleteTournamentForm');
+    const input = form.querySelector('input');
+    const button = form.querySelector('button');
+    input.addEventListener('input', () => { button.disabled = input.value.trim() !== input.dataset.expected; });
+})();
 document.querySelectorAll('[data-copy]').forEach((button) => {
     button.addEventListener('click', async () => {
         const input = document.querySelector(button.dataset.copy);

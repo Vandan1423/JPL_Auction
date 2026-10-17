@@ -397,6 +397,15 @@ a.setup-step-link:hover { border-color: var(--primary-200); color: var(--primary
 .danger-row p { max-width: 60ch; font-size: 0.9rem; }
 .danger-form { display: flex; gap: var(--sp-sm); }
 .danger-form .form-control { width: 140px; }
+.danger-form .form-control.confirm-name { width: 220px; }
+.usage-meter { margin-top: var(--sp-md); }
+.usage-meter-label { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.9rem; margin-bottom: 0.4rem; }
+.usage-meter-track { height: 10px; border-radius: 999px; background: var(--gray-200); overflow: hidden; }
+.usage-meter-fill { height: 100%; border-radius: inherit; background: var(--success); transition: width 0.4s ease; }
+.usage-meter.is-high .usage-meter-fill { background: var(--warning); }
+.usage-meter.is-full .usage-meter-fill { background: var(--danger); }
+.usage-meter p { margin: 0.5rem 0 0; font-size: 0.8rem; }
+.cloudinary-notice { margin-bottom: var(--sp-md); }
 
 /* ===== Auction control additions ===== */
 kbd {

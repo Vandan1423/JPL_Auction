@@ -26,7 +26,7 @@ import {
 	startNextPlayer,
 } from '../services/auction.js';
 import { getBiddingBoard, getPlayerCounts, getTeamStats } from '../services/standings.js';
-import { isCloudinaryConfigured, pingCloudinary, uploadImageFrom } from '../services/cloudinary.js';
+import { describeCloudinaryError, isCloudinaryConfigured, pingCloudinary, uploadImageFrom } from '../services/cloudinary.js';
 import { deleteTournament, syncOwnerPlayers } from '../services/tournamentSetup.js';
 import { formatMoney } from '../utils/format.js';
 import logger from '../utils/logger.js';
@@ -111,12 +111,19 @@ function tournamentLogoSvg({ shortName, season }) {
  * source URL is stored as-is and the app shows it directly.
  */
 function imageStore(tournamentId, useCloudinary) {
+	let limitReached = false;
 	return async (source, kind, format) => {
-		if (!useCloudinary) return { url: source };
+		if (!useCloudinary || limitReached) return { url: source };
 		try {
 			return await uploadImageFrom(source, { tournamentId, kind, format });
 		} catch (error) {
-			console.warn(`  ! ${kind} image upload failed (${error.message}); using the original link`);
+			if (error.cloudinaryLimit) {
+				// Every further upload would fail the same way; link the rest directly.
+				limitReached = true;
+				console.warn(`\n  ! ${error.message}\n  ! Linking the remaining images directly instead.`);
+			} else {
+				console.warn(`  ! ${kind} image upload failed (${error.message}); using the original link`);
+			}
 			return { url: source };
 		}
 	};
@@ -202,8 +209,13 @@ async function createTournament() {
 			await pingCloudinary();
 			console.log('Cloudinary: connected, images will be uploaded to your account');
 		} catch (error) {
-			console.error(`Cloudinary rejected the keys in .env: ${error.message || error.error?.message}`);
-			console.error('Check CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET, then try again.');
+			const info = describeCloudinaryError(error);
+			if (info.kind === 'rate' || info.kind === 'quota') {
+				console.error(info.message);
+			} else {
+				console.error(`Cloudinary rejected the keys in .env: ${error.message || error.error?.message}`);
+				console.error('Check CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET, then try again.');
+			}
 			process.exit(1);
 		}
 	} else {

@@ -86,9 +86,16 @@ export const deleteTournament = async (req, res, next) => {
 			return res.redirect('/admin/tournaments');
 		}
 
-		await deleteTournamentCascade(tournament);
+		const removed = await deleteTournamentCascade(tournament);
 		if (req.session.tournamentId === String(tournament._id)) delete req.session.tournamentId;
-		req.session.success = `${tournament.name} and all its teams, players and images were deleted`;
+		const parts = [`${removed.teams} teams`, `${removed.players} players`, 'the auction history'];
+		if (removed.images.ok && removed.images.deleted) parts.push(`${removed.images.deleted} images`);
+		const summary = `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
+		if (removed.images.ok) {
+			req.session.success = `${tournament.name} was deleted: ${summary}.`;
+		} else {
+			req.session.error = `${tournament.name} was deleted (${summary}), but its images could not be removed from Cloudinary. ${removed.images.message} You can delete the folder ${removed.images.folder} in the Cloudinary Media Library later.`;
+		}
 		return res.redirect('/admin/tournaments');
 	} catch (error) {
 		next(error);

@@ -1,6 +1,6 @@
 import { APP_NAME } from '../config/constants.js';
 import { formatMoney } from '../utils/format.js';
-import { imageUrl, isCloudinaryConfigured } from '../services/cloudinary.js';
+import { getCloudinaryNotice, imageUrl, isCloudinaryConfigured } from '../services/cloudinary.js';
 
 /**
  * Helpers available in every view. Tournament-specific helpers (money in the
@@ -12,6 +12,8 @@ export const viewLocals = (req, res, next) => {
 	res.locals.money = (amount) => formatMoney(amount, 'INR');
 	res.locals.img = imageUrl;
 	res.locals.uploadsEnabled = isCloudinaryConfigured();
+	// Plan-limit warning for admins (the public display never shows it).
+	res.locals.cloudinaryNotice = req.session?.isAdmin ? getCloudinaryNotice() : null;
 	res.locals.tournament = null;
 	// "socket" (instant updates) or "polling" (serverless hosts such as Vercel).
 	res.locals.realtime = req.app.get('realtime') || 'polling';

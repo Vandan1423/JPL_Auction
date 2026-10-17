@@ -15,6 +15,7 @@ router.get('/api/queue', ...ready, auctionController.apiQueue);
 router.post('/api/start-player', ...ready, auctionController.apiStartPlayer);
 router.post('/api/next-player', ...ready, auctionController.apiNextPlayer);
 router.post('/api/place-bid', ...ready, auctionController.apiPlaceBid);
+router.post('/api/undo-bid', ...ready, auctionController.apiUndoBid);
 router.post('/api/mark-sold', ...ready, auctionController.apiMarkSold);
 router.post('/api/mark-unsold', ...ready, auctionController.apiMarkUnsold);
 router.post('/api/withdraw-player', ...ready, auctionController.apiWithdrawPlayer);

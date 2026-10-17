@@ -83,6 +83,9 @@
     </nav>
     <% } %>
     <main class="main-content" id="main-content">
+    <% if (cloudinaryNotice) { %>
+        <div class="alert alert-<%= cloudinaryNotice.level %> cloudinary-notice" role="status"><i class="fa-solid fa-triangle-exclamation"></i> <span><strong><%= cloudinaryNotice.title %>.</strong> <%= cloudinaryNotice.text %></span></div>
+    <% } %>
     <% const flash = takeFlash(); %>
     <% if (flash.success) { %>
         <div class="alert alert-success flash-message"><i class="fa-solid fa-circle-check"></i> <span><%= flash.success %></span></div>

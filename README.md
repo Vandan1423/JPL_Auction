@@ -10,11 +10,13 @@ A real-time player auction platform for any cricket tournament. Set up a tournam
 - **Owners instead of captains.** Every team has an owner. If the owner also plays, they join the squad automatically and fill one slot, optionally at a fixed price taken from the purse.
 - **Correct bidding rules.** The opening bid is exactly the base price, and slab increments apply only from the second bid. The highest bidder can't raise its own bid. Categories can have their own increments and a per-team limit (for example, at most 2 "A" players per team).
 - **Purse protection.** No team can bid so much that it can't complete its minimum squad at base prices. Each team's maximum bid is shown live, and the calculation accounts for the cheap players that cash-strapped rivals will be forced to buy.
-- **Live control panel.** Next or random player (optionally by category), BID buttons that show the amount, custom bids, sold, unsold (re-queued, optionally moved down a category), withdraw and undo, plus keyboard shortcuts (`1`–`9`, `N`, `R`, `Space`, `U`, `Ctrl/⌘+Z`).
+- **Live control panel.** Next or random player (optionally by category), BID buttons that show the amount, custom bids, sold, unsold (re-queued, optionally moved down a category), withdraw, undo last bid and undo last sale, plus keyboard shortcuts (`1`–`9`, `N`, `R`, `Space`, `U`, `Backspace`, `Ctrl/⌘+Z`).
 - **Projector display.** A display for each tournament at `/display/<tournament>`, with SOLD/UNSOLD animations. It reconnects on its own and falls back to polling.
 - **Easy player entry.** Photos are cropped to a square and compressed in the browser before upload. Click any player's avatar to add a photo, or add many players at once with a photo per row.
 - **Excel / CSV import.** Download a template with dropdowns for your roles and categories, or upload a Google Form export. Headers such as "Full Name" and "Mobile Number" are recognised, and every row is checked before anything is saved.
 - **Reports.** Excel exports (sold players, unsold players, team sheets) and printable PDFs (player catalogue, one squad sheet per team).
+- **Clean deletion.** Deleting a tournament (Settings → Danger zone, or the Tournaments page) removes its teams, owners, players and auction history from MongoDB and every image from Cloudinary, then reports what was removed.
+- **Cloudinary free-plan aware.** Settings shows how much of the monthly credit allowance is used. If Cloudinary refuses a request because a plan limit is reached (monthly credits, the hourly request limit or the 10 MB file cap), the admin gets a clear "Cloudinary limit reached" message and a banner on every admin page instead of a raw API error.
 
 ## Getting started
 
@@ -34,7 +36,7 @@ npm start
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | From the Cloudinary console (cloud name on the dashboard; key and secret under Settings → API Keys). Or set `CLOUDINARY_URL` (`cloudinary://key:secret@cloud`) instead. |
 | `PORT` | Optional, defaults to 3000 |
 
-The app runs without Cloudinary; photo and logo uploads simply stay switched off until the keys are set.
+The app runs without Cloudinary; photo and logo uploads simply stay switched off until the keys are set. On the free plan, keep an eye on the usage meter in **Settings → Image uploads**: when the monthly credits run out, uploads stop (the auction itself keeps working) until usage drops over the rolling 30 days.
 
 | Page | URL |
 |---|---|
@@ -94,7 +96,7 @@ Once the auction has started (any player sold or passed unsold), settings that w
 |---|---|
 | `npm start` | Start the server |
 | `npm run dev` | Start with auto-reload (nodemon) |
-| `npm test` | Run the unit tests (bidding rules, spreadsheet import) |
+| `npm test` | Run the unit tests (bidding rules, spreadsheet import, Cloudinary limit errors) |
 | `npm run seed:demo` | Create the demo tournament (see [Demo data](#demo-data)) |
 
 ## Project structure

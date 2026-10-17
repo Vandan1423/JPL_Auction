@@ -274,6 +274,36 @@ export async function placeBid(tournament, teamId, amount = null) {
 	return { bid, team };
 }
 
+/**
+ * Take back the most recent bid on the current player (e.g. a mis-click).
+ * The previous bid becomes the highest again; undoing the opening bid
+ * leaves the player at base price with no bidder.
+ */
+export async function undoLastBid(tournament) {
+	const state = await getAuctionState(tournament._id);
+	const history = state.bidHistory || [];
+	if (!state.isActive || !state.currentPlayer) throw new AuctionError('No player is up for auction');
+	if (history.length === 0) throw new AuctionError('There is no bid to undo');
+
+	const undone = history[history.length - 1];
+	const previous = history[history.length - 2] || null;
+	const player = await Player.findById(state.currentPlayer).lean();
+	if (!player) throw new AuctionError('Current player not found', 404);
+
+	const ok = await swapState(state, {
+		$set: {
+			currentBid: previous ? previous.bidAmount : basePriceOf(tournament, player),
+			currentBidder: previous ? previous.teamId : null,
+			lastBidTime: new Date(),
+		},
+		$pop: { bidHistory: 1 },
+	});
+	if (!ok) throw new AuctionError('Another bid landed at the same moment. Check the current bid and try again.', 409);
+
+	logger.auction('Bid undone', { tournament: tournament.name, player: player.name, team: undone.teamName, amount: undone.bidAmount });
+	return { player, undone, previous };
+}
+
 /** Sell the current player to the highest bidder. */
 export async function markSold(tournament) {
 	const state = await getAuctionState(tournament._id);
