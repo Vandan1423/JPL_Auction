@@ -6,6 +6,7 @@
 import 'dotenv/config';
 
 import path from 'path';
+import { randomBytes } from 'crypto';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import session from 'express-session';
@@ -21,10 +22,6 @@ import logger from './utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === 'production';
-
-if (isProduction && !process.env.SESSION_SECRET) {
-	logger.warn('SESSION_SECRET is not set: set it in your hosting environment variables');
-}
 
 const app = express();
 
@@ -50,11 +47,23 @@ app.use((req, res, next) => {
 	connectDB().then(() => next(), next);
 });
 
+// The secret signs the login cookie. A fixed fallback would be public in the
+// source code and let anyone forge an admin session, so production refuses to
+// start without one; locally a random secret is used (logins reset on restart).
+let sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+	if (isProduction) {
+		throw new Error('SESSION_SECRET is not set. Add a long random string to the environment variables.');
+	}
+	sessionSecret = randomBytes(32).toString('hex');
+	logger.warn('SESSION_SECRET is not set: using a random one, so logins reset when the server restarts');
+}
+
 // Sessions are kept in MongoDB, so admins stay logged in across restarts and
 // across serverless instances.
 app.use(
 	session({
-		secret: process.env.SESSION_SECRET || 'change-me',
+		secret: sessionSecret,
 		resave: false,
 		saveUninitialized: false,
 		store: MongoStore.create({

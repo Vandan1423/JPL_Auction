@@ -32,7 +32,7 @@ npm start
 |---|---|
 | `MONGODB_URI` | MongoDB connection string, e.g. `mongodb://localhost:27017/auction-hub` |
 | `ADMIN_PASSWORD` | Password for the admin panel |
-| `SESSION_SECRET` | Any long random string |
+| `SESSION_SECRET` | Any long random string. Required in production: the server refuses to start without it |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | From the Cloudinary console (cloud name on the dashboard; key and secret under Settings → API Keys). Or set `CLOUDINARY_URL` (`cloudinary://key:secret@cloud`) instead. |
 | `PORT` | Optional, defaults to 3000 |
 
